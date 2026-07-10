@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planificador de Productividades — Reparto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0c11; --surface:#12151d; --surface2:#171b25; --elevated:#1d222e;
+    --border:#232a36; --border2:#2f3746; --line:#1c2230;
+    --text:#eef1f7; --dim:#9aa4b8; --faint:#5d6678;
+    --accent:#5b8cff; --accent-dim:rgba(91,140,255,.14);
+    --tm:#5b8cff; --ttl:#34d399; --ttc:#fbbf24; --tp:#b47cff;
+    --good:#34d399; --warn:#fbbf24; --bad:#f87171; --cap:#8b93a8;
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --sh:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.2);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em}
+  .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:5px;border:2px solid var(--bg)}
+  ::selection{background:rgba(91,140,255,.3)}
+
+  /* HEADER */
+  header{height:54px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border)}
+  .logo{font-weight:800;font-size:15px;letter-spacing:-0.02em;display:flex;align-items:center;gap:9px}
+  .logo .dot{width:9px;height:9px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .logo .sub{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
+  .hgrow{flex:1}
+  .hactions{display:flex;align-items:center;gap:8px}
+  .saved{font-family:var(--mono);font-size:11px;color:var(--good);opacity:0;transition:opacity .3s}
+  .saved.on{opacity:1}
+  select,input[type=number],input[type=date],input[type=text]{font-family:var(--mono);font-size:12px;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;outline:none;transition:border-color .15s}
+  select:focus,input:focus{border-color:var(--accent)}
+  select{cursor:pointer}
+  .btn{font-family:var(--sans);font-weight:600;font-size:12px;padding:7px 13px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--dim);cursor:pointer;transition:all .15s;white-space:nowrap}
+  .btn:hover{color:var(--text);border-color:var(--faint)}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.pri:hover{background:#4a7cf0;box-shadow:0 0 16px rgba(91,140,255,.4)}
+  .btn.sm{padding:5px 10px;font-size:11px;border-radius:7px}
+  .btn.gho{background:transparent}
+
+  /* COLMENAS (barra horizontal arriba) — cada una con su color (--cc) */
+  .colmbar{display:flex;gap:7px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
+  .colm{display:flex;flex-direction:column;gap:3px;padding:8px 14px;min-width:104px;cursor:pointer;border:1px solid var(--border);border-radius:11px;background:var(--surface2);border-top:3px solid var(--cc,var(--faint));transition:all .12s;flex-shrink:0}
+  .colm:hover{background:var(--elevated)}
+  .colm.on{background:color-mix(in srgb,var(--cc) 15%,var(--surface2));border-color:var(--cc);box-shadow:0 0 0 1px var(--cc)}
+  .colm .cn{font-weight:800;font-size:14px;letter-spacing:-.01em;color:var(--dim);display:flex;align-items:center;gap:7px}
+  .colm.on .cn{color:var(--text)}
+  .colm .cn::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--cc,var(--faint));flex-shrink:0}
+  .colm .cm{font-family:var(--mono);font-size:10.5px;color:var(--faint);display:flex;gap:9px}
+  .colm .cpom{color:var(--dim);font-weight:600}
+
+  .main{flex:1;display:flex;overflow:hidden}
+  /* SIDENAV (secciones, vertical a la izquierda) */
+  .sidenav{width:180px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px;gap:4px;overflow-y:auto}
+  .navcol{font-size:18px;font-weight:800;letter-spacing:-0.02em;padding:2px 8px 14px}
+  .navcol .yr{color:var(--faint);font-weight:600;font-size:13px;margin-left:7px}
+  .seg{display:flex;flex-direction:column;gap:3px}
+  .seg button{font-family:var(--sans);font-weight:600;font-size:13.5px;padding:10px 13px;border-radius:9px;border:none;background:transparent;color:var(--dim);cursor:pointer;text-align:left;transition:all .12s;display:flex;align-items:center;gap:11px}
+  .seg button:hover{background:var(--surface2);color:var(--text)}
+  .seg button.on{background:var(--accent-dim);color:var(--accent);box-shadow:inset 2px 0 0 var(--accent)}
+  .seg button svg{width:16px;height:16px;flex-shrink:0;opacity:.75}
+  .seg button.on svg{opacity:1}
+
+  /* CONTENT */
+  .content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .view{flex:1;overflow-y:auto;padding:20px}
+  .view.flush{padding:0;display:flex;flex-direction:column;overflow:hidden}
+
+  /* CARDS */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;transition:border-color .15s}
+  .card:hover{border-color:var(--border2)}
+  .card-h{padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+  .card-t{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--text)}
+  .card-s{font-size:11px;color:var(--faint);font-weight:500}
+  .card-b{padding:16px 18px}
+  .tag{margin-left:auto;font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:20px;background:var(--accent-dim);color:var(--accent);font-weight:500}
+  .tag.amber{background:rgba(251,191,36,.14);color:var(--warn)}
+  .tag.green{background:rgba(52,211,153,.14);color:var(--good)}
+
+  /* COVERAGE BANNER */
+  .cov{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;padding:18px 22px;background:linear-gradient(120deg,var(--surface2),var(--surface));border:1px solid var(--border);border-radius:14px;margin-bottom:16px}
+  .cov-ring{position:relative;width:96px;height:96px;flex-shrink:0}
+  .cov-pct{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .cov-pct b{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1}
+  .cov-pct span{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+  .cov-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 26px}
+  .fact .fl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .fact .fv{font-family:var(--mono);font-size:21px;font-weight:600;line-height:1}
+  .fact .fs{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:3px}
+
+  /* KPI mini */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px}
+  .kpi .kl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .kpi .kv{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1}
+  .kpi .ks{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:4px}
+
+  /* CHIPS filter (meses) — más grandes; color por productividad vía --pc */
+  .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:9px;cursor:pointer;border:1px solid var(--pc,var(--border2));background:transparent;color:var(--pc,var(--dim));transition:all .12s}
+  .chip:hover{filter:brightness(1.25)}
+  .chip.on{background:color-mix(in srgb,var(--pc,var(--accent)) 22%,transparent);border-color:var(--pc,var(--accent));color:#fff;box-shadow:0 0 0 1px var(--pc,var(--accent))}
+  .chip.plain{color:var(--dim);border-color:var(--border2)}
+  .chip.plain.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);box-shadow:none}
+
+  /* TABLE */
+  .twrap{overflow:auto}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
+  thead th{position:sticky;top:0;z-index:5;background:var(--surface2);color:var(--faint);font-size:9.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;text-align:right;padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+  thead th.l{text-align:left}
+  tbody td{padding:7px 11px;text-align:right;border-bottom:1px solid var(--line);color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+  tbody tr:not(.msep):hover td{background:rgba(255,255,255,.025)}
+  tbody td.l{text-align:left}
+  tbody tr:hover td{background:rgba(255,255,255,.02)}
+  td.st{color:var(--text);font-weight:500}
+  .grp{border-left:1px solid var(--line)}
+  th.grp{border-left:1px solid var(--border)}
+  .msep td{background:var(--surface2)!important;color:var(--dim);font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:7px 11px}
+  @keyframes flashrow{0%{background:var(--accent-dim)}100%{background:transparent}}
+  tr.flash td{animation:flashrow 1.4s ease-out}
+  .cell-inp{font-family:var(--mono);font-size:11px;color:var(--text);background:transparent;border:1px solid transparent;border-radius:5px;padding:2px 6px;width:64px;text-align:right;outline:none;transition:all .12s}
+  .cell-inp:hover,.cell-inp:focus{background:var(--surface2);border-color:var(--accent)}
+  .cell-inp.ovr{color:var(--warn)}
+  .pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
+  .pill.ok{background:rgba(52,211,153,.16);color:var(--good)}
+  .pill.no{background:rgba(248,113,113,.16);color:var(--bad)}
+  .pill.warn{background:rgba(251,191,36,.16);color:var(--warn)}
+  .rowbad td{background:rgba(248,113,113,.055)}
+  .weekend td:first-child{color:var(--faint)}
+
+  /* month grid inputs */
+  .mgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:6px}
+  .mcell{display:flex;flex-direction:column;gap:5px;align-items:center}
+  .mcell label{font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--faint)}
+  .mcell input{font-family:var(--mono);font-size:12px;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:6px 4px;width:100%;text-align:center;outline:none}
+  .mcell input:focus{border-color:var(--accent)}
+  .mcell input.ovr{color:var(--warn);border-color:rgba(251,191,36,.4)}
+  .mcell .sub{font-family:var(--mono);font-size:9px;color:var(--faint)}
+  .note{font-size:11.5px;color:var(--dim);line-height:1.55}
+  .note b{color:var(--text)}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .field input,.field select{width:100%}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+  .row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+
+  /* legend + chart */
+  .lgd{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:10px}
+  .lgd span{display:flex;align-items:center;gap:6px}
+  .sw{width:11px;height:11px;border-radius:3px}
+  .swl{width:14px;height:0;border-top:2px dashed var(--cap)}
+
+  /* modal */
+  .mbg{position:fixed;inset:0;background:rgba(4,6,10,.72);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50}
+  .mbg.on{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:22px;width:580px;max-width:94vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .modal.wide{width:1100px}
+  .modal h3{font-size:15px;font-weight:700;margin-bottom:14px}
+  .drop{border:2px dashed var(--border2);border-radius:12px;padding:22px;text-align:center;color:var(--faint);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+  .drop:hover,.drop.over{border-color:var(--accent);color:var(--text)}
+  textarea{width:100%;min-height:90px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--mono);font-size:10.5px;padding:10px;outline:none;resize:vertical;margin-top:10px}
+  .frow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:11px 0;font-size:12.5px}
+  .radios{display:flex;flex-direction:column;gap:9px;margin:10px 0}
+  .radios label{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;cursor:pointer}
+  .radios .sub{color:var(--faint);font-size:11px}
+  .macts{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--elevated);border:1px solid var(--border2);color:var(--text);border-radius:10px;padding:10px 18px;font-family:var(--mono);font-size:11.5px;display:none;z-index:100;box-shadow:var(--sh)}
+  .guide{max-width:900px;line-height:1.65}
+  .guide h2{font-size:16px;font-weight:700;margin:22px 0 8px}
+  .guide h2:first-child{margin-top:0}
+  .guide p,.guide li{color:var(--dim);margin:6px 0}
+  .guide li{margin-left:18px}
+  .guide code{font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--text)}
+  .guide .fx{font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:8px 0;white-space:pre-wrap;color:var(--dim);overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><span class="dot"></span>Planificador<span class="sub">Reparto · Columnas</span></div>
+    <div class="hgrow"></div>
+    <div class="hactions">
+      <span class="saved" id="saved">Guardado</span>
+      <select id="planSel" title="Año del plan"></select>
+      <button class="btn sm" id="bNuevo">+ Año</button>
+      <button class="btn pri sm" id="bCsv">Importar CSV</button>
+      <button class="btn sm gho" id="bExport">Exportar</button>
+      <button class="btn sm gho" id="bImport">Importar</button>
+      <span class="saved" id="nubeDot" title="Sincronizado con Supabase">☁</span>
+      <input type="file" id="fJson" accept=".json" style="display:none">
+    </div>
+  </header>
+  <div class="colmbar" id="rail"></div>
+  <div class="main">
+    <div class="sidenav">
+      <div class="navcol" id="navCol"></div>
+      <div class="seg" id="seg"></div>
+    </div>
+    <div class="content">
+      <div class="view" id="view"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<div class="mbg" id="mCsv"><div class="modal">
+  <h3>Importar CSV — columnas o productividades</h3>
+  <div class="drop" id="drop">Arrastra el CSV de <b>daily_business_offer</b> (columnas) o el export de <b>turnos de PMR</b> (productividades) — se detecta solo</div>
+  <input type="file" id="fCsv" accept=".csv,.txt" style="display:none">
+  <textarea id="csvPaste" placeholder="center,service_date,total_columns,...  ·o·  Origin,Shift,Shift Type,Service Date,..."></textarea>
+  <div class="frow"><label style="display:flex;gap:7px;align-items:center;font-size:12px"><input type="checkbox" id="chkAdj" style="width:auto"> usar columnas <code>adjusted_*</code></label>
+    <button class="btn pri sm" id="bParse">Analizar</button></div>
+  <div id="csvRes"></div>
+  <div class="macts"><button class="btn sm" id="csvClose">Cerrar</button></div>
+</div></div>
+<div class="mbg" id="mNuevo"><div class="modal">
+  <h3>Nuevo año de planificación</h3>
+  <div class="frow"><label>Año</label><input type="number" id="npAno" min="2024" max="2100" style="width:100px"></div>
+  <div class="frow"><label>Copiar parámetros de</label><select id="npBase"></select></div>
+  <div class="radios">
+    <label><input type="radio" name="npCols" value="vacias" checked style="width:auto"><span>Columnas vacías <span class="sub">— las cargarás del CSV</span></span></label>
+    <label><input type="radio" name="npCols" value="copiar" style="width:auto"><span>Copiar columnas del año base</span></label>
+    <label><input type="radio" name="npCols" value="escalar" style="width:auto"><span>Copiar escaladas</span> <input type="number" id="npPct" value="10" style="width:64px"> %</label>
+  </div>
+  <div class="macts"><button class="btn sm" id="npCancel">Cancelar</button><button class="btn pri sm" id="npOk">Crear</button></div>
+</div></div>
+<script>
+'use strict';
+/* ============================================================
+   PLANIFICADOR PRODUCTIVIDADES — Columnas Operativas
+   Modelo del Excel "Desglose Columnas Operativas" (verificado
+   contra sus dos hojas: TP dinámico y Puente Fijo, 0 discrepancias).
+   Datos por día: columnas (query de negocio) y productividad.
+   POM mensual = máximo de columnas del mes por colmena.
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+const MESES_L = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DSEM = ['L','M','X','J','V','S','D'];
+const COLORES = { mad1:'#4f7fff', bcn1:'#3ecf8e', vlc1:'#f59e0b', alc1:'#a78bfa', svq1:'#f87171', pan2:'#34d399', pan3:'#60a5fa', mad2:'#fb923c', mad3:'#e879f9' };
+const nf0 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt0 = v => (v == null || isNaN(v)) ? '—' : nf0.format(v);
+const fmt1 = v => (v == null || isNaN(v)) ? '—' : nf1.format(v);
+const fmt2 = v => (v == null || isNaN(v)) ? '—' : nf2.format(v);
+const DAY = 86400000;
+function isoToMs(d) { return Date.parse(d + 'T00:00:00Z'); }
+function msToIso(ms) { return new Date(ms).toISOString().slice(0, 10); }
+function diasDelAño(año) {
+  const out = []; let ms = isoToMs(año + '-01-01');
+  while (new Date(ms).getUTCFullYear() === año) { out.push(msToIso(ms)); ms += DAY; }
+  return out;
+}
+function dsem(iso) { return (new Date(isoToMs(iso)).getUTCDay() + 6) % 7; } // 0=lunes
+function fechaLarga(iso) { return iso.slice(8, 10) + ' ' + MESES[mesDe(iso)] + ' ' + iso.slice(0, 4); }
+function mesDe(iso) { return parseInt(iso.slice(5, 7), 10) - 1; }           // 0..11
+function semanaISO(iso) {
+  const d = new Date(isoToMs(iso)); const dn = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dn);
+  return Math.ceil(((d - Date.parse(d.getUTCFullYear() + '-01-01')) / DAY + 1) / 7);
+}
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2600);
+}
+function numES(s) {
+  if (s == null) return NaN;
+  s = String(s).trim().replace(/[\s ]/g, '');
+  if (s === '') return NaN;
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d+,\d+$/.test(s)) s = s.replace(',', '.');
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return NaN;
+  return parseFloat(s);
+}
+
+/* ---------- MOTOR (réplica de la CARPETA VERDE del Excel de Productividades) ----------
+   Dos fases, todo en RUTAS enteras con techo (ROUNDUP):
+   1) PARQUE desde el POM:  R (TM) = techo(POM·%OfertaTM/prod) ≤ calles TM
+                            U (largas) = resto ≤ largas · V (cortas, prod×6,5/7,5) ≤ cortas
+                            S (TP) = resto ≤ mín(calles TP, calles TM/2)
+   2) DÍA con la oferta real, en cascada puente→mañana→largas→cortas,
+      cada turno capado a su PARQUE. Servido = Σ rutas × prod (cortas ×6,5/7,5). */
+function xround(x) { return Math.sign(x) * Math.round(Math.abs(x)); } // ROUND de Excel
+const RATIO_CORTAS = 6.5 / 7.5;   // las cortas rinden prod × 6,5/7,5 (Carpeta Verde)
+const up = x => Math.ceil(x - 1e-9);                                  // ROUNDUP de Excel
+// %Oferta TM por defecto (columna O de la Carpeta Verde): 0,5 general,
+// 0,7 en PAN2/PAN3 y mad3 al 0,52 de septiembre a diciembre
+function pctTMDef(c) {
+  if (c === 'pan2' || c === 'pan3') return Array(12).fill(0.7);
+  if (c === 'mad3') return [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.52, 0.52, 0.52, 0.52];
+  return Array(12).fill(0.5);
+}
+
+function calcDiaV2(inp) {
+  const { pom, callesTM, callesTP, prod, oferta } = inp;
+  const largasTT = Math.max(inp.largasTT || 0, 0);
+  const cortasTT = Math.max(inp.cortasTT || 0, 0);
+  const callesTT = largasTT + cortasTT;
+  const ratio = inp.ratioTP ?? 0.4;                   // AE: % máx TP sobre la tarde
+  const pctTM = inp.pctTM > 0 ? inp.pctTM : 0.5;      // O: % Oferta TM (0,5 gral · 0,7 PAN)
+  const N = prod, prodC = N * RATIO_CORTAS;
+  const maxTP = Math.min(callesTP || 0, Math.ceil((callesTM || 0) / 2)); // K = mín(calles TP, TM/2)
+  // ---- FASE 1 · parque de rutas desde el POM ----
+  const M = pom;
+  const pR = N > 0 ? Math.min(up(M * pctTM / N), callesTM || 0) : 0;                          // rutas TM
+  const pU = N > 0 ? Math.max(Math.min(up((M - pR * N) / N), largasTT), 0) : 0;               // largas
+  const pV = N > 0 ? Math.max(Math.min(up((M - pR * N - pU * N) / prodC), cortasTT), 0) : 0;  // cortas
+  const pS = N > 0 ? Math.max(Math.min(up((M - pR * N - pV * prodC - pU * N) / N), maxTP), 0) : 0; // TP
+  const pomCols = pR * N + pU * N + pV * prodC + pS * N;   // X: POM Columnas del parque
+  // P (capacidad máxima teórica de la Carpeta): calles a tope, cortas a 6,5/8
+  const capMax = Math.floor(((callesTM || 0) + maxTP + largasTT + cortasTT / 8 * 6.5) * N + 1e-9);
+  const capTM = xround((callesTM || 0) * N), capTP = xround((callesTP || 0) * N), capTT = xround(callesTT * N);
+  // desglose del POM para la vista Mensual (desde el parque)
+  const pomTM = xround(pR * N), pomTT = xround(pU * N + pV * prodC), pomTP = xround(pS * N);
+  const pomSM = xround(pR * N + pS * N / 2), pomST = pom - pomSM;
+  // ---- FASE 2 · operativa del día (capada al parque) ----
+  const AA = oferta;
+  // Oferta SM (AB): override del día > mañana de la query > techo del parque de mañana
+  const Q = inp.ofertaSM ?? (inp.ofertaSMQuery != null
+    ? Math.min(xround(inp.ofertaSMQuery), xround(AA))
+    : Math.min(xround(pR * N), xround(AA)));
+  const Rst = AA - Q;                                 // Oferta ST (AD)
+  // AF · rutas de puente: mín(usar el parque SM, % máx sobre la tarde, parque TP)
+  const cand1 = N > 0 ? up((Q - pR * N / 2) / N) : 0;
+  const cand2 = N > 0 ? up(ratio * Rst / (1 - ratio / 2) / N) : 0;
+  const AF = AA > 0 ? Math.max(Math.min(inp.modoTP === 'fijo' ? Infinity : cand1, cand2, pS), 0) : 0;
+  // AG · rutas de mañana: cubren la Oferta SM (el TP aporta media)
+  const AG = AA > 0 && N > 0 ? Math.max(Math.min(up((Q - AF * N / 2) / N), pR), 0) : 0;
+  // AH · largas y AI · cortas: el resto del día, en cascada
+  const AH = AA > 0 && N > 0 ? Math.max(Math.min(up((AA - AG * N - AF * N) / N), pU), 0) : 0;
+  const AI = AA > 0 && N > 0 ? Math.max(Math.min(up((AA - AF * N - AG * N - AH * N) / prodC), pV), 0) : 0;
+  // AK · servido = lo que reparte la flota del día
+  const AK = (AF + AG + AH + AI * RATIO_CORTAS) * N;
+  const reparto = Math.round(AK);
+  let sinServir = Math.max(AA - AK, 0);
+  if (sinServir < 2) sinServir = 0;
+  const cubierto = sinServir === 0;                   // AL: Oferta_OK
+  const servido = AA - sinServir;
+  const cobPct = AA > 0 ? Math.min(servido, AA) / AA * 100 : 100;
+  // columnas por turno = rutas × prod (suman al reparto)
+  const colTMv = Math.round(AG * N), colTTv = Math.round(AH * N + AI * prodC), colTPv = Math.round(AF * N);
+  const colTM = colTMv, colTT = colTTv, colTTL = Math.round(AH * N), colTTC = Math.round(AI * prodC);
+  const vehTM = AG, rutasTTL = AH, rutasTTC = AI, vehTP = AF;
+  const vehTT = AH + AI;
+  const veh = Math.max(AG + AF, AH + AI + AF);        // Y del día (pico)
+  // qué limita cuando el día no se cubre: el turno cuyo PARQUE se agota
+  let cuelloBotella = null, limitaDetalle = '';
+  if (sinServir > 0) {
+    const topeTM = pR > 0 && AG >= pR, topeL = pU > 0 && AH >= pU;
+    const topeC = pV > 0 && AI >= pV, topeTP = pS > 0 && AF >= pS;
+    const tardeTope = (pU === 0 || topeL) && (pV === 0 || topeC);
+    if ((pR === 0 || topeTM) && tardeTope && (pS === 0 || topeTP)) cuelloBotella = 'tope';
+    else if (tardeTope && pU > 0) cuelloBotella = 'tarde';
+    else if (topeL) cuelloBotella = 'largas';
+    else if (topeC) cuelloBotella = 'cortas';
+    else if (topeTP) cuelloBotella = 'TP';
+    else cuelloBotella = 'tope';
+    limitaDetalle = 'Parque agotado → TM ' + AG + '/' + pR + ' · largas ' + AH + '/' + pU +
+      ' · cortas ' + AI + '/' + pV + ' · TP ' + AF + '/' + pS +
+      '. El parque sale del POM (' + fmt0(pom) + ' × %TM ' + Math.round(pctTM * 100) + '%): súbelo, o más calles/productividad.';
+  }
+  return { capTM, capTP, capTT, capMax, pomTT, pomTM, pomTP, pomSM, pomST, pomCols,
+           parque: { R: pR, U: pU, V: pV, S: pS, maxTP },
+           ofertaSM: Q, ofertaST: Rst, colTP: colTPv, colTM, colTT, tpAmpliado: false,
+           colTMv, colTTv, colTPv, reparto,
+           colTTL, colTTC, rutasTTL, rutasTTC, maxLargas: largasTT, cortasReserv: cortasTT, largasTT, cortasTT, prodC,
+           sinServir, cubierto, servido, cobPct, cuelloBotella, limitaDetalle, vehTM, vehTT, vehTP, veh };
+}
+// constantes de jornada (minutos desde las 00:00)
+// durLarga 8h, durCorta 7h (fijas). Cortes: última salida larga < 16:00 y corta < 17:00
+// (para acabar antes de las 00:00). TP en ventana 10:00-20:00 (ruta 8h -> salida <= 12:00).
+const JORNADA = { durLarga: 480, durCorta: 420, corteLarga: 960, corteCorta: 1020, tpFin: 1200, fin: 1440 };
+function hm(s) { const p = s.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+// Parrilla por colmena y TURNO (mañana / puente / tarde). Cada turno: hora 1ª carga,
+// minutos entre cargas, nº camiones por carga (muelles) y ventana de reparto.
+function _t(ini, carga, muelles, vDesde, vHasta) { return { ini: hm(ini), carga, muelles, vDesde: hm(vDesde), vHasta: hm(vHasta) }; }
+const HORARIOS_DEF = {
+  bcn1: { tm: _t('06:15', 10, 7, '07:00', '16:00'), tp: _t('10:45', 10, 7, '10:00', '20:00'), tt: _t('13:55', 10, 7, '14:00', '22:00') },
+  vlc1: { tm: _t('05:45', 20, 11, '07:00', '16:00'), tp: _t('11:30', 20, 7, '11:00', '20:00'), tt: _t('13:50', 20, 11, '14:00', '22:00') },
+  mad1: { tm: _t('06:00', 30, 17, '07:00', '16:00'), tp: _t('10:35', 30, 17, '10:00', '20:00'), tt: _t('14:00', 30, 17, '14:00', '22:00') },
+  alc1: { tm: _t('06:00', 20, 11, '07:00', '16:00'), tp: _t('10:30', 20, 11, '10:00', '20:00'), tt: _t('13:45', 20, 11, '14:00', '22:00') },
+  mad3: { tm: _t('06:00', 30, 20, '07:00', '16:00'), tp: _t('10:35', 30, 20, '10:00', '20:00'), tt: _t('14:00', 30, 20, '14:00', '22:00') },
+  svq1: { tm: _t('06:00', 20, 11, '07:00', '16:00'), tp: _t('10:30', 20, 11, '10:00', '20:00'), tt: _t('13:45', 20, 11, '14:00', '22:00') },
+  mad2: { tm: _t('06:00', 20, 5, '07:00', '16:00'), tp: _t('10:30', 30, 5, '10:00', '20:00'), tt: _t('13:40', 20, 5, '14:00', '22:00') },
+  // PAN2 y PAN3 (panales): sin parrilla propia en las imágenes -> provisional, por confirmar
+  pan2: { tm: _t('06:00', 20, 5, '07:00', '16:00'), tp: _t('10:30', 20, 5, '10:00', '20:00'), tt: _t('14:00', 20, 5, '14:00', '22:00') },
+  pan3: { tm: _t('06:00', 20, 5, '07:00', '16:00'), tp: _t('10:30', 20, 5, '10:00', '20:00'), tt: _t('14:00', 20, 5, '14:00', '22:00') },
+  _def: { tm: _t('06:00', 20, 5, '07:00', '16:00'), tp: _t('10:30', 20, 5, '10:00', '20:00'), tt: _t('14:00', 20, 5, '14:00', '22:00') },
+};
+const TURNOS = [['tm', 'Turno mañana'], ['tp', 'Turno puente'], ['tt', 'Turno tarde']];
+// nº de oleadas cuya salida cae en [ini, fin) — cada carga separa 'carga' minutos
+function nOleadas(ini, carga, fin) { return ini >= fin ? 0 : Math.floor((fin - 1 - ini) / carga) + 1; }
+function fmtHora(min) { return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(Math.round(min % 60)).padStart(2, '0'); }
+function parseHora(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s).trim());
+  if (!m) return null;
+  const v = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  return (v >= 0 && v < 1440) ? v : null;
+}
+function nVeh(columnas, prod) {
+  // rutas = las NECESARIAS para cubrir las columnas del turno (techo): si hay margen
+  // de calles no se deja demanda colgada por medio camión. Única excepción: si el
+  // camión extra fuera a <10% de carga no se envía (108 col / 17,91 = 6,03 → 6 rutas,
+  // no 7; pero 469 / 17,7 = 26,5 → 27 rutas, no 26).
+  if (!(prod > 0) || columnas <= 0) return 0;
+  return Math.max(1, Math.ceil(columnas / prod - 0.1));
+}
+
+/* ---------- datos embebidos 2026 (Excel de productividades + query 08/07/2026) ---------- */
+const EMBED = {"a\u00f1o":2026,"centros":["bcn1","vlc1","mad1","alc1","mad3","svq1","pan2","pan3","mad2"],"prod":{"bcn1":[15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.8,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91,15.91],"vlc1":[16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.6,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75],"mad1":[15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,15.9,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16],"alc1":[16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75],"mad3":[15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,14.75,14.75,14.75,14.75,14.75,14.75,14.75,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.25,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75,15.75],"svq1":[16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.2,14.5,14.5,14.5,14.5,14.5,14.5,14.5,15,15,15,15,15,15,15,15.2,15.2,15.2,15.2,15.2,15.2,15.2,15.5,15.5,15.5,15.5,15.5,15.5,15.5,16,16,16,16,16,16,16,16,16,16,16,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75,16.75],"pan2":[16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5,16.5],"pan3":[16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,15.5,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25,16.25],"mad2":[17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.7,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91,17.91]},"cols":{"bcn1":[0,3000,2100,0,2350,0,3810,3810,3810,3550,0,3810,3810,3375,2925,3350,2650,0,3600,3200,2750,2900,3500,2700,0,3700,3600,3450,3650,3810,3750,0,3810,3810,3810,3810,3810,3500,0,3810,3300,2400,2300,3100,2050,0,3400,2900,2400,2300,3300,2200,0,3810,3500,3300,3400,3810,3700,0,3810,3810,3810,3810,3810,3500,0,3810,3600,3200,2900,3400,2400,0,3250,2900,2600,2450,3200,2250,0,3300,3100,3100,3300,3700,3200,0,3810,3700,3200,2800,0,2300,0,0,3810,3810,3810,3810,3550,0,3810,3700,3450,2850,3500,2200,0,3810,3600,3300,3000,3600,3150,0,3810,3810,3500,3700,0,3200,0,3850,3850,3850,3850,3850,3450,0,3850,3850,3400,3050,3400,2100,0,3800,3100,2550,2550,3350,2400,0,0,3850,3850,3850,3850,3700,0,3850,3850,3850,3850,3850,3400,0,3850,3850,3400,3300,3600,2500,0,3500,3250,2900,2700,3400,2550,0,3500,3000,0,3850,3850,3700,0,3850,3850,3850,3850,3850,3700,0,3850,3550,3050,2800,3200,2550,0,3300,2900,2500,2200,3000,2250,0,3100,2700,2300,2300,3000,2200,0,3200,3000,2950,2800,3350,2700,0,3350,3300,2850,2400,2950,2000,0,2750,2200,2100,2100,2400,0,0,3150,2700,2100,1850,2300,1900,0,3200,3200,3100,3250,3300,3200,0,3850,3850,3850,3850,3850,3850,0,3850,3850,3850,3850,0,3400,0,3650,3200,2800,2500,3300,2300,0,3850,3600,3850,0,3850,3250,0,3850,3850,3850,3810,3810,3650,0,3810,3810,3700,3700,3810,3100,0,0,3810,3810,3400,3600,2200,0,3450,2850,2450,2450,3450,2500,0,3810,3600,3600,3500,3810,3000,0,3810,3810,3810,3810,3810,3600,0,3810,3600,3200,2900,3450,2550,0,3600,3050,2400,2150,3200,1900,0,3700,3450,3250,3250,3600,3400,0,3810,3810,3810,3810,3810,3300,0,3810,0,3810,3810,3810,2500,0,3500,3100,2500,2500,3350,2600,0,3810,3400,3000,2350,0,0,0,3810,3400,3000,2350],"vlc1":[0,2400,1900,0,1560,0,2840,2840,2840,2550,0,2840,2600,2000,1800,2600,2000,0,2700,2550,2700,0,2600,1900,0,2840,2600,2500,2400,2600,2100,0,2840,2840,2500,2350,2600,1900,0,2700,2150,1700,1700,2300,1600,0,2600,2100,1600,1600,2250,1800,0,2700,2600,2300,2400,2840,2300,0,2840,2840,2840,2840,2840,2300,0,2840,2600,2100,1850,2200,1700,0,2300,1700,1700,0,2600,2050,0,2700,2400,2000,2150,2700,2400,0,2700,2500,2500,2600,0,2000,0,0,2840,2840,2840,2840,2000,0,0,2840,2700,2500,2750,2200,0,2750,2600,2400,2350,2650,2150,0,2840,2840,2500,2750,0,2500,0,2840,2840,2840,2840,2840,2500,0,2840,2550,2150,2100,2700,2050,0,2750,2350,1950,1850,2550,2000,0,2840,2840,2600,2600,2840,2600,0,2840,2840,2840,2840,2840,2450,0,2840,2800,2650,2400,2840,1900,0,2700,2550,2050,1850,2750,2100,0,2840,2600,0,2840,2840,2700,0,2840,2840,2840,2840,2840,2840,0,2840,2840,2840,2750,2840,2600,0,2840,2750,2600,2450,2840,2300,0,2840,2750,2300,2350,2840,2150,0,2750,2600,2450,2650,2840,2840,0,2840,2840,2750,2500,2700,2250,0,2700,2300,2100,2150,2500,0,0,2840,2750,2250,1950,2250,1650,0,2750,2750,2350,2350,2750,2840,0,2840,2840,2840,2840,2840,2840,0,2840,2840,2600,2350,2840,2100,0,2550,2300,2100,2000,2450,2000,0,2700,2550,2400,2250,2840,2350,0,2840,2840,2840,2840,2840,2750,0,2840,2840,2350,2750,0,2000,0,0,2840,2840,2600,2700,2000,0,2750,2550,1950,1950,2750,2000,0,2840,2600,2400,2550,2840,2200,0,2840,2840,2840,2840,2840,2600,0,2840,2840,2300,2200,2600,1700,0,2800,2300,1850,1750,2500,1600,0,2800,2650,2300,2250,2800,2500,0,2840,2840,2840,2840,2840,2400,0,2840,0,2840,2840,2840,2000,0,2840,2700,2300,2300,2600,2100,0,2840,2600,2200,1560,0,1700,0,2840,2600,2300,1560],"mad1":[0,3500,2200,0,2520,0,4250,4250,4250,4000,0,4250,4250,4250,4250,4250,3450,0,4250,4000,3800,3700,4200,3050,0,4250,4250,4250,4250,4250,4000,0,4250,4250,4250,4250,4250,3200,0,4250,4250,3700,3100,3900,2200,0,4250,4250,3250,2900,3700,2400,0,4250,4250,4000,4000,4250,4000,0,4250,4250,4250,4250,4250,3600,0,4250,4250,4250,3800,4100,2400,0,4250,4100,3400,3000,4000,2600,0,4000,4000,3100,2800,3400,2500,0,3700,3000,2900,0,0,2700,0,4250,4250,4250,4250,4250,4000,0,4250,4250,4000,3400,4000,2200,0,4250,4000,3700,3400,4100,2400,0,4250,4250,4250,4250,0,3700,0,4250,4250,4250,4250,4250,4000,0,4250,4250,4250,4250,0,3400,0,4250,4250,3900,3900,4100,2600,0,4250,4250,4250,4250,4250,3700,0,4250,4250,4250,4250,4250,3150,0,4250,4250,4000,3900,3500,1900,0,3500,3300,2900,2850,3100,2000,0,3350,3000,2950,2700,2700,2200,0,2950,2950,2800,2900,2650,1850,0,2550,2500,2150,1850,1750,1150,0,1800,1800,1350,1250,1000,900,0,1174,1050,1050,1000,950,700,0,1250,1150,900,900,900,900,0,900,900,900,800,420,420,0,420,420,420,420,600,0,0,600,500,400,400,1100,1050,0,1530,1530,1530,1530,2150,2250,0,2270,2350,2350,2250,1850,1850,0,1825,1650,1600,1600,1350,900,0,1100,1050,850,900,1000,900,0,1050,1050,950,1050,1150,1050,0,1300,1250,1200,1250,1400,1400,0,1200,1200,1200,1150,1700,1750,0,0,1850,1600,1600,1600,1300,0,1550,1400,1300,1300,1800,1550,0,1950,1750,1750,1750,1950,1600,0,0,2060,2060,2060,2060,1900,0,0,2060,2050,2060,1900,1700,0,1550,1550,1350,1300,1650,1200,0,1600,1650,1800,1700,1900,2060,0,2060,2060,2060,1850,2000,1750,0,1185,0,2060,1700,1950,1600,0,1750,1550,1400,1400,1700,1300,0,2000,1700,1500,1185,0,1350,0,2000,1650,1450,1185],"alc1":[0,1200,1000,0,1030,0,2100,2100,2100,1900,0,2100,1950,1550,1550,1850,1550,0,1950,1650,1300,1250,1850,1600,0,2100,1950,1700,1600,2100,1750,0,2100,2050,1900,1850,2000,1350,0,2000,1600,1300,1250,1750,1200,0,1700,1550,1250,1250,1850,1200,0,2000,1850,1700,1700,2100,1700,0,2100,2100,2100,2100,2100,1500,0,2000,1700,1350,1300,1800,1350,0,2000,1700,1900,0,2100,1400,0,2000,1700,1600,1600,2100,2000,0,2100,2100,2100,2100,0,2100,0,0,2100,2100,1900,2100,1800,0,2100,1800,1800,0,2100,1800,0,2100,1800,1500,1500,2000,1500,0,2100,2100,2100,2100,0,2100,0,2200,2200,2200,2200,2200,1900,0,2200,1850,1700,1650,1900,1600,0,1950,1700,1650,1550,2000,1700,0,2200,2100,1950,2050,2200,2100,0,2400,2300,2200,2200,2400,2000,0,2300,2050,1900,1800,2150,1700,0,2150,2050,1800,1800,2150,1900,0,2300,2300,0,2330,2570,2600,0,2600,2600,2600,2600,2600,2600,0,2600,2450,2150,2150,2550,2300,0,2600,2550,2150,2100,2450,2200,0,2600,2550,2300,2300,2600,2350,0,2600,2600,2600,2600,2600,2600,0,2600,2600,2600,2600,2600,2500,0,2600,2450,2350,2550,2600,0,0,2600,2600,2350,1900,2000,1800,0,2400,2450,2200,2000,2350,2250,0,2300,2300,2300,2300,2300,2200,0,2300,2300,2100,2000,2050,1700,0,2300,1800,1500,1550,2150,1700,0,2200,2050,1800,1700,2300,1850,0,2300,2300,2300,2250,2250,2100,0,2250,2000,1800,2250,0,2000,0,0,2250,2250,1900,2000,1650,0,2000,1800,1500,1500,2000,1650,0,2250,2050,1900,2150,2250,1900,0,2250,2250,2250,2250,2250,2150,0,1950,1750,1600,1600,1900,1500,0,1800,1700,1450,1450,1950,1500,0,2050,2000,1800,1750,2150,1850,0,2250,2250,2250,2250,2250,1900,0,2250,0,2250,2250,2250,1600,0,1900,1700,1400,1400,1900,1600,0,2250,1900,1700,1030,0,1350,0,2250,1900,1700,1030],"mad3":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,500,500,0,500,500,500,500,750,750,0,750,750,750,750,1000,1000,0,1000,1000,1000,1000,1250,1250,0,1250,1250,1250,1250,1500,1500,0,1500,1500,1500,1500,1750,1750,0,1750,1750,1750,1750,2000,2000,0,2000,2000,2000,2000,2170,2250,0,2250,2250,2250,2250,2500,2500,0,2500,2500,2500,2500,2750,0,0,2750,2750,2750,2750,3000,3000,0,3000,3000,3000,3000,3100,3100,0,2950,3250,3250,3250,3500,3500,0,3500,3500,3500,3500,3690,3210,0,3750,3750,3200,2900,3450,2750,0,4000,3900,3950,3650,3800,3050,0,4250,4250,4250,4250,4250,4050,0,4250,4200,4250,4100,3500,2800,0,0,4250,4250,3600,3900,2400,0,3400,3300,2950,2850,3300,2300,0,3650,3650,3650,3300,3700,2450,0,0,4250,4250,4250,4250,3700,0,0,4250,4250,4250,3900,3000,0,3650,3450,3200,3150,3300,1850,0,3500,3450,3450,3250,3450,2950,0,4250,4250,3800,3300,3700,3000,0,3000,0,4250,4250,4250,3400,0,3700,3400,2700,2400,3100,1950,0,3500,2700,2200,1950,0,1700,0,3500,2700,2200,1950],"svq1":[0,900,800,0,900,0,1815,1815,1815,1700,0,1815,1750,1350,1200,1450,1200,0,1550,1450,1200,1350,1600,1300,0,1815,1650,1600,1600,1815,1550,0,1815,1750,1650,1450,1750,1200,0,1650,1250,1000,1000,1350,1000,0,1300,1100,1000,1000,1400,1050,0,1700,1700,1500,1600,1815,900,0,1815,1815,1815,1815,1815,1505,0,1815,1700,1150,1150,1500,1000,0,1400,1350,1200,1150,1350,1300,0,1400,1300,1300,1650,1725,1600,0,1645,1625,1700,0,0,1400,0,1815,1815,1750,1700,1815,1400,0,1700,1400,1200,1200,1600,1400,0,1815,1600,0,1750,1600,1550,0,1815,1815,1815,1815,0,1500,0,1920,1920,1920,1920,1920,1500,0,1920,1800,1500,1300,1800,1200,0,1700,1400,1050,1050,1750,1200,0,1920,1920,1920,1800,1920,1700,0,1920,1920,1920,0,1920,1650,0,1800,1500,1400,1250,1500,1050,0,1300,1150,1000,950,1200,1000,0,1700,1600,1450,1400,1500,1400,0,1850,2130,2000,1970,2100,1700,0,2000,1750,1500,1250,1550,1300,0,1600,1500,1450,1400,1600,1100,0,1800,1500,1250,1250,1650,1500,0,1900,1650,1500,1800,2070,2070,0,2070,2070,2070,1850,1950,1700,0,1800,1600,1500,1700,1810,0,0,1970,1900,1650,1380,1300,1050,0,1800,1600,1450,1700,1800,1900,0,2000,2000,2000,2000,2000,1650,0,2000,1850,1500,1400,1750,1250,0,1700,1400,1350,1250,1550,1200,0,1900,1500,1450,1650,2000,1550,0,2000,2000,2000,1850,1850,1850,0,1850,1800,1600,1500,1750,1400,0,0,1850,1600,1300,1700,1200,0,1600,1350,1250,1300,1750,1400,0,1850,1850,1600,1600,1850,1600,0,0,1900,1900,1900,1900,1800,0,1850,1700,1400,1300,1550,1300,0,1600,1300,1100,1200,1400,1200,0,1900,1850,1700,1650,1900,1450,0,1900,1900,1900,1900,1900,1500,0,1800,0,1900,1900,1750,1350,0,1850,1500,1250,1250,1550,1400,0,1900,1500,1200,900,0,1100,0,1900,1500,1200,900],"pan2":[0,396,281,0,297,0,495,396,495,462,0,462,380,297,297,396,297,0,380,297,297,297,297,380,0,462,396,396,396,462,495,0,495,462,396,297,396,297,0,396,297,264,264,264,264,0,297,297,264,264,297,264,0,462,396,297,396,462,297,0,495,495,396,396,396,380,0,396,380,297,297,380,264,0,380,297,297,297,297,264,0,396,396,396,396,495,495,0,495,495,495,0,0,495,0,495,495,396,396,462,297,0,380,297,297,297,297,264,0,380,297,0,396,396,297,0,495,396,396,495,0,495,0,495,495,396,396,495,380,0,462,396,363,297,380,264,0,396,363,297,297,380,264,0,462,396,396,479,479,462,0,495,380,495,0,495,462,0,396,363,297,363,396,297,0,380,297,281,264,297,297,0,396,363,363,297,372,372,0,465,465,465,465,465,465,0,434,357,341,357,434,372,0,450,434,372,434,465,372,0,465,465,372,279,341,357,0,434,372,465,465,465,465,0,465,465,465,434,372,279,0,372,372,372,372,465,0,0,341,341,341,341,279,248,0,341,341,279,264,279,357,0,462,380,380,380,462,396,0,396,363,297,264,396,264,0,363,281,281,264,380,264,0,396,297,297,363,396,363,0,495,495,495,462,495,396,0,495,396,297,297,396,396,0,0,495,380,297,363,264,0,297,297,297,297,462,297,0,495,495,396,396,462,297,0,0,495,396,297,396,297,0,363,363,264,264,380,281,0,380,297,264,264,297,264,0,396,363,363,462,462,380,0,495,495,495,495,495,297,0,396,0,495,396,396,380,0,396,363,297,297,396,396,0,495,396,297,297,0,396,0,495,396,297,297],"pan3":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,248,248,0,279,279,279,279,279,279,0,248,171,186,155,155,155,0,279,186,186,248,186,155,0,279,248,155,155,186,155,0,248,186,186,279,279,279,0,279,279,279,248,186,186,0,264,186,186,186,279,0,0,279,248,171,155,248,248,0,264,186,171,171,186,171,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"mad2":[0,1000,850,0,710,0,1325,1325,1325,1325,0,1325,1325,1325,1325,1325,1050,0,1325,1150,1050,1050,1325,1250,0,1325,1325,1325,1325,1325,1325,0,1325,1325,1325,1325,1325,1200,0,1325,1325,1100,1000,1325,950,0,1250,1150,1050,950,1250,900,0,1325,1325,1200,1325,1325,1250,0,1325,1325,1325,1325,1325,1250,0,1325,1325,1200,1200,1325,1050,0,1325,1200,1000,900,1250,950,0,1325,1150,1000,1000,1100,800,0,1150,900,900,0,0,900,0,1325,1325,1325,1325,1325,1250,0,1325,1325,1325,1200,1325,1000,0,1325,1200,1200,1000,1325,1000,0,1325,1325,1325,1325,0,1100,0,1325,1325,1325,1325,1325,1325,0,1325,1325,1325,1325,0,1100,0,1325,1250,1050,1000,1325,1050,0,1325,1325,1325,1325,1325,1325,0,1325,1325,1325,1325,1325,1325,0,1325,1325,1300,1100,1325,1100,0,1325,1250,1050,950,1325,1000,0,1325,1300,1200,1250,1325,1325,0,1325,1325,1325,1325,1325,1325,0,1325,1325,1325,1250,1325,950,0,1325,1100,1050,1050,1200,900,0,1174,1000,950,900,1050,900,0,1265,1200,1175,1225,1000,800,0,893,843,850,893,425,275,0,450,400,350,400,400,0,0,826,826,650,550,750,650,0,1325,1150,1000,1080,1325,1200,0,1295,1325,1325,1325,1325,1250,0,1325,1325,1300,1200,1325,900,0,1295,1250,1130,950,1150,800,0,1325,1325,1250,1150,1325,900,0,1325,1325,1325,1325,1325,1100,0,1325,1325,1325,1325,1325,1050,0,0,1325,1325,1250,1325,950,0,1325,1325,1200,1200,1325,1000,0,1325,1325,1325,1325,1325,1000,0,0,1325,1325,1325,1325,1100,0,0,1325,1325,1250,1325,1050,0,1325,1325,1200,1200,1325,850,0,1325,1325,1325,1325,1325,1050,0,1325,1325,1325,1325,1325,800,0,900,0,1325,1325,1325,1150,0,1325,1325,1200,1100,1325,1000,0,1325,1200,900,710,0,900,0,1325,1200,900,710]},"colsSM":{"bcn1":[0,2054,1470,0,1980,0,2054,2054,2054,2054,0,2054,2054,2054,2047,2054,1855,0,2054,2054,1925,2030,2054,1890,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,2054,2054,2054,0,2054,2054,1680,1610,2054,1435,0,2054,2030,1680,1610,2054,1540,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,2030,2054,1680,0,2054,2030,1820,1715,2054,1575,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,1960,0,1610,0,0,2054,2054,2054,2054,2054,0,2054,2054,2054,1995,2054,1540,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,2054,0,2040,0,2040,2040,2040,2040,2040,2040,0,2040,2040,2040,2040,2040,1470,0,2040,2040,1785,1785,2040,1680,0,0,2040,2040,2040,2040,2040,0,2040,2040,2040,2040,2040,2040,0,2040,2040,2040,2040,2040,1750,0,2040,2040,2030,1890,2040,1785,0,2040,2040,0,2040,2040,2040,0,2040,2040,2040,2040,2040,2040,0,2040,2040,2040,1960,2040,1785,0,2040,2030,1750,1540,2040,1575,0,2040,1890,1610,1610,2040,1540,0,2040,2040,2040,1960,2040,1790,0,1790,1790,1790,1680,1790,1400,0,1790,1540,1470,1470,1680,0,0,1790,1790,1470,1295,1610,1330,0,1790,1790,1790,1790,2040,2040,0,2040,2040,2040,2040,2040,2040,0,2040,2040,2040,2040,0,2040,0,2040,2040,1960,1750,2040,1610,0,2040,2040,2040,0,2040,2040,0,2040,2040,2040,2054,2054,2054,0,2054,2054,2054,2054,2054,2054,0,0,2054,2054,2054,2054,1540,0,2054,1995,1715,1715,2054,1750,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,2030,2054,1785,0,2054,2054,1680,1505,2054,1330,0,2054,2054,2054,2054,2054,2054,0,2054,2054,2054,2054,2054,2054,0,2054,0,2054,2054,2054,1750,0,2054,2054,1750,1750,2054,1820,0,2054,2054,2054,1980,0,0,0,2054,2054,2054,1980],"vlc1":[0,1480,1330,0,1390,0,1480,1480,1480,1480,0,1480,1480,1400,1260,1480,1400,0,1480,1480,1480,0,1480,1330,0,1480,1480,1480,1480,1480,1470,0,1480,1480,1480,1480,1480,1330,0,1480,1480,1190,1190,1480,1120,0,1480,1470,1120,1120,1480,1260,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1470,1295,1480,1190,0,1480,1190,1190,0,1480,1435,0,1480,1480,1400,1480,1480,1480,0,1480,1480,1480,1480,0,1400,0,0,1480,1480,1480,1480,1400,0,0,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,0,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1470,1480,1435,0,1480,1480,1365,1295,1480,1400,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1330,0,1480,1480,1435,1295,1480,1470,0,1480,1480,0,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1470,1480,1480,0,0,1480,1480,1480,1365,1480,1155,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1470,0,1480,1480,1470,1400,1480,1400,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,0,1400,0,0,1480,1480,1480,1480,1400,0,1480,1480,1365,1365,1480,1400,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1190,0,1480,1480,1295,1225,1480,1120,0,1480,1480,1480,1480,1480,1480,0,1480,1480,1480,1480,1480,1480,0,1480,0,1480,1480,1480,1400,0,1480,1480,1480,1480,1480,1470,0,1480,1480,1480,1390,0,1190,0,1480,1480,1480,1390],"mad1":[0,2253,1540,0,2170,0,2253,2253,2253,2253,0,2253,2253,2253,2253,2253,2253,0,2253,2253,2253,2253,2253,2135,0,2253,2253,2253,2253,2253,2253,0,2253,2253,2253,2253,2253,2240,0,2253,2253,2253,2170,2253,1540,0,2253,2253,2253,2030,2253,1680,0,2253,2253,2253,2253,2253,2253,0,2253,2253,2253,2253,2253,2253,0,2253,2253,2253,2253,2253,1680,0,2253,2253,2253,2100,2253,1820,0,2253,2253,2170,1960,2253,1750,0,2253,2100,2030,0,0,1890,0,2253,2253,2253,2253,2253,2253,0,2253,2253,2253,2253,2253,1540,0,2253,2253,2253,2253,2253,1680,0,2253,2253,2253,2253,0,2253,0,2253,2253,2253,2253,2253,2253,0,2253,2253,2253,2253,0,2253,0,2253,2253,2253,2253,2253,1820,0,2253,2253,2253,2253,2253,2253,0,2253,2253,2253,2253,2253,2205,0,2253,2253,2253,2253,1933,1330,0,1933,1933,1933,1933,2016,1400,0,2016,2016,2016,1890,1693,1540,0,1611,1638,1960,2030,1490,1295,0,1490,1490,1490,1295,1000,805,0,1000,1000,945,875,600,600,0,600,600,600,600,665,490,0,770,770,630,630,470,470,0,470,470,470,470,230,230,0,230,230,230,230,390,0,0,390,350,280,280,770,735,0,770,770,770,770,1190,1190,0,1190,1190,1190,1190,1040,1040,0,1040,1040,1040,1040,945,630,0,770,735,595,630,700,630,0,735,735,665,735,805,735,0,910,875,840,875,980,980,0,840,840,840,805,1040,1040,0,0,1040,1040,1040,1040,910,0,1040,980,910,910,1040,1040,0,1040,1040,1040,1040,1040,1040,0,0,1040,1040,1040,1040,1040,0,0,1040,1040,1040,1040,1040,0,1040,1040,945,910,1040,840,0,1040,1040,1040,1040,1040,1040,0,1040,1040,1040,1040,1040,1040,0,830,0,1040,1040,1040,1040,0,1040,1040,980,980,1040,910,0,1040,1040,1040,830,0,945,0,1040,1040,1015,830],"alc1":[0,840,700,0,860,0,1050,1050,1050,1050,0,1050,1050,1050,1050,1050,1050,0,1050,1050,910,875,1050,1050,0,1050,1050,1050,1050,1050,1050,0,1050,1050,1050,1050,1050,945,0,1050,1050,910,875,1050,840,0,1050,1050,875,875,1050,840,0,1050,1050,1050,1050,1050,1050,0,1050,1050,1050,1050,1050,1050,0,1050,1050,945,910,1050,945,0,1050,1050,1050,0,1050,980,0,1050,1050,1050,1050,1050,1050,0,1050,1050,1050,1050,0,1050,0,0,1050,1050,1050,1050,1050,0,1050,1050,1050,0,1050,1050,0,1050,1050,1050,1050,1050,1050,0,1050,1050,1050,1050,0,1110,0,1110,1110,1110,1110,1110,1110,0,1110,1110,1110,1110,1110,1110,0,1110,1110,1110,1085,1110,1110,0,1110,1110,1110,1110,1110,1110,0,1300,1300,1300,1300,1300,1300,0,1300,1300,1300,1260,1300,1190,0,1300,1300,1260,1260,1300,1300,0,1300,1300,0,1300,1300,1300,0,1300,1300,1300,1300,1300,1300,0,1300,1300,1300,1300,1300,1300,0,1300,1300,1300,1300,1300,1300,0,1300,1300,1300,1300,1300,1300,0,1300,1300,1300,1300,1300,1300,0,1300,1300,1300,1300,1300,1300,0,1300,1300,1300,1300,1300,0,0,1300,1300,1300,1300,1300,1260,0,1300,1300,1300,1300,1300,1300,0,1300,1150,1150,1150,1150,1150,0,1150,1150,1150,1150,1150,1150,0,1150,1150,1050,1085,1150,1150,0,1150,1150,1150,1150,1150,1150,0,1150,1150,1150,1125,1125,1125,0,1125,1125,1125,1125,0,1125,0,0,1125,1125,1125,1125,1125,0,1125,1125,1050,1050,1125,1125,0,1125,1125,1125,1125,1125,1125,0,1125,1125,1125,1125,1125,1125,0,1125,1125,1120,1120,1125,1050,0,1125,1125,1015,1015,1125,1050,0,1125,1125,1125,1125,1125,1125,0,1125,1125,1125,1125,1125,1125,0,1125,0,1125,1125,1125,1120,0,1125,1125,980,980,1125,1120,0,1125,1125,1125,860,0,945,0,1125,1125,1125,860],"mad3":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,30,260,260,0,260,260,260,260,380,380,0,380,380,380,380,510,510,0,510,510,510,510,630,630,0,630,630,630,630,770,770,0,770,770,770,770,890,890,0,890,890,890,890,1010,1010,0,1010,1010,1010,1010,1140,1140,0,1140,1140,1140,1140,1260,1260,0,1260,1260,1260,1260,1380,0,0,1380,1380,1380,1380,1510,1510,0,1510,1510,1510,1510,1640,1640,0,1540,1640,1640,1640,1760,1760,0,1760,1760,1760,1760,1960,1960,0,1960,1960,1960,1960,2150,1925,0,2150,2150,2150,2150,2340,2135,0,2340,2340,2340,2340,2340,2340,0,2340,2340,2340,2340,2340,1960,0,0,2340,2340,2340,2340,1680,0,2340,2310,2065,1995,2310,1610,0,2340,2340,2340,2310,2340,1715,0,0,2340,2340,2340,2340,2340,0,0,2340,2340,2340,2340,2100,0,2340,2340,2240,2205,2310,1295,0,2340,2340,2340,2275,2340,2065,0,2340,2340,2340,2310,2340,2100,0,2100,0,2340,2340,2340,2340,0,2340,2340,1890,1680,2170,1365,0,2340,1890,1540,1365,0,1190,0,2340,1890,1540,1365],"svq1":[0,630,560,0,730,0,926,926,926,926,0,926,926,926,840,926,840,0,926,926,840,926,926,910,0,926,926,926,926,926,926,0,926,926,926,926,926,840,0,926,875,700,700,926,700,0,910,770,700,700,926,735,0,926,926,926,926,926,730,0,926,926,926,926,926,926,0,926,926,805,805,926,700,0,926,926,840,805,926,910,0,926,910,910,926,926,926,0,926,866,926,0,0,926,0,926,926,926,926,926,926,0,926,926,840,840,926,926,0,926,926,0,926,926,926,0,926,926,926,926,0,910,0,910,910,910,910,910,910,0,910,910,910,910,910,840,0,910,910,735,735,910,840,0,910,910,910,910,910,910,0,910,910,910,0,910,910,0,910,910,910,875,910,735,0,910,805,700,665,840,700,0,910,910,910,910,930,930,0,930,930,930,930,930,930,0,930,930,930,875,920,910,0,920,920,920,920,920,770,0,920,920,875,875,870,870,0,870,870,870,870,900,900,0,900,900,900,900,920,920,0,920,920,920,920,930,0,0,930,930,930,930,910,735,0,960,960,960,960,1000,1000,0,1000,1000,1000,1000,1000,1000,0,1000,1000,1000,980,1000,875,0,1000,980,945,875,1000,840,0,1000,1000,1000,1000,1000,1000,0,1000,1000,1000,944,944,944,0,944,944,944,944,944,944,0,0,944,944,910,944,840,0,944,944,875,910,944,944,0,944,944,944,944,944,944,0,0,970,970,970,970,970,0,970,970,970,910,970,910,0,970,910,770,840,970,840,0,970,970,970,970,970,970,0,970,970,970,970,970,970,0,970,0,970,970,970,945,0,970,970,875,875,970,970,0,970,970,840,730,0,770,0,970,970,840,730],"pan2":[0,297,198,0,297,0,297,297,297,281,0,281,281,198,198,297,198,0,281,198,198,198,198,281,0,281,297,297,297,281,297,0,297,281,297,198,297,198,0,297,198,182,182,182,182,0,198,198,182,182,198,182,0,281,297,198,297,281,297,0,297,297,297,297,297,281,0,297,281,198,198,281,182,0,281,198,198,198,198,182,0,297,297,297,297,297,297,0,297,297,297,0,0,297,0,297,297,297,297,281,198,0,281,198,198,198,198,182,0,281,198,0,297,297,198,0,297,297,297,297,0,297,0,297,297,297,297,297,281,0,281,297,281,198,281,182,0,297,281,198,198,281,182,0,281,297,297,297,297,281,0,297,281,297,0,297,281,0,297,281,198,281,297,198,0,281,198,198,182,198,198,0,297,281,281,198,279,279,0,279,279,279,279,279,279,0,264,264,264,264,264,279,0,279,264,279,264,279,279,0,279,279,279,186,264,264,0,264,279,279,279,279,279,0,279,279,279,264,279,186,0,279,279,279,279,279,0,0,264,264,264,264,186,171,0,264,264,186,186,186,264,0,281,281,281,281,281,297,0,297,281,198,182,297,182,0,281,198,198,182,281,182,0,297,198,198,281,297,281,0,297,297,297,281,297,297,0,297,297,198,198,297,297,0,0,297,281,198,281,182,0,198,198,198,198,281,198,0,297,297,297,297,281,198,0,0,297,297,198,297,198,0,281,281,182,182,281,198,0,281,198,182,182,198,182,0,297,281,281,281,281,281,0,297,297,297,297,297,198,0,297,0,297,297,297,281,0,297,281,198,198,297,297,0,297,297,198,297,0,297,0,297,297,198,297],"pan3":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,171,171,0,186,186,186,186,186,186,0,171,93,93,78,78,78,0,186,93,93,171,93,78,0,186,171,78,78,93,78,0,171,93,93,186,186,186,0,186,186,186,171,93,93,0,171,93,93,93,186,0,0,186,171,93,78,171,171,0,171,93,93,93,93,93,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"mad2":[0,689,595,0,610,0,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,665,0,689,689,689,665,689,630,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,630,689,665,0,689,689,689,689,689,560,0,689,630,630,0,0,630,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,0,689,0,689,689,689,689,689,689,0,689,689,689,689,0,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,665,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,665,0,689,689,689,689,689,630,0,689,689,665,630,689,630,0,689,689,689,689,630,560,0,625,575,595,625,298,193,0,315,280,245,280,280,0,0,578,578,455,385,525,455,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,689,689,689,689,689,630,0,659,689,689,665,689,560,0,689,689,689,689,689,630,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,0,689,689,689,689,665,0,689,689,689,689,689,689,0,689,689,689,689,689,689,0,0,689,689,689,689,689,0,0,689,689,689,689,689,0,689,689,689,689,689,595,0,689,689,689,689,689,689,0,689,689,689,689,689,560,0,630,0,689,689,689,689,0,689,689,689,689,689,689,0,689,689,630,610,0,630,0,689,689,630,610]},"calles":{"bcn1":{"tm":[104.0,104.0,104.0,104.0,104.0,104.0,104.0,104.0,104.0,104.0,104.0,104.0],"tp":[48.0,48.0,48.0,48.0,48.0,48.0,48.0,48.0,48.0,48.0,48.0,48.0],"tt":[94.0,94.0,94.0,94.0,94.0,94.0,94.0,94.0,94.0,94.0,94.0,94.0]},"vlc1":{"tm":[84.0,84.0,84.0,84.0,84.0,84.0,84.0,84.0,84.0,84.0,84.0,84.0],"tp":[11.0,11.0,11.0,11.0,11.0,20.0,20.0,20.0,15.0,11.0,11.0,11.0],"tt":[77.0,77.0,77.0,77.0,77.0,77.0,77.0,77.0,77.0,77.0,77.0,77.0]},"mad1":{"tm":[120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0],"tp":[45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0,45.0],"tt":[113.0,113.0,113.0,113.0,113.0,113.0,113.0,113.0,113.0,113.0,113.0,113.0]},"alc1":{"tm":[69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0],"tp":[34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0],"tt":[69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0,69.0]},"mad3":{"tm":[140.0,140.0,140.0,140.0,140.0,140.0,140.0,140.0,140.0,140.0,140.0,140.0],"tp":[70.0,70.0,70.0,70.0,70.0,70.0,70.0,70.0,70.0,70.0,70.0,70.0],"tt":[120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0,120.0]},"svq1":{"tm":[69.0,69.0,69.0,69.0,54.0,60.0,60.0,60.0,66.0,66.0,66.0,66.0],"tp":[22.0,22.0,22.0,22.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"tt":[69.0,69.0,69.0,69.0,66.0,78.0,78.0,78.0,78.0,78.0,78.0,78.0]},"pan2":{"tm":[18.0,18.0,18.0,18.0,18.0,18.0,18.0,18.0,18.0,18.0,18.0,18.0],"tp":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"tt":[12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0]},"pan3":{"tm":[12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0,12.0],"tp":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"tt":[6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0]},"mad2":{"tm":[34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0],"tp":[7.0,7.0,7.0,7.0,7.0,7.0,7.0,7.0,7.0,7.0,7.0,7.0],"tt":[34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0,34.0]}},"cortasTT":{"bcn1":[24,24,24,24,24,24,24,24,24,24,24,24],"vlc1":[0,0,0,0,0,0,0,0,0,0,0,0],"mad1":[45,45,45,45,45,45,45,45,45,45,45,45],"alc1":[0,0,0,0,0,0,0,0,0,0,0,0],"mad3":[40,40,40,40,40,40,40,40,40,40,40,40],"svq1":[0,0,0,0,0,0,0,0,0,0,0,0],"pan2":[0,0,0,0,0,0,0,0,0,0,0,0],"pan3":[0,0,0,0,0,0,0,0,0,0,0,0],"mad2":[0,0,0,0,0,0,0,0,0,0,0,0]},"largasTT":{"bcn1":[70,70,70,70,70,70,70,70,70,70,70,70],"vlc1":[77,77,77,77,77,77,77,77,77,77,77,77],"mad1":[68,68,68,68,68,68,68,68,68,68,68,68],"alc1":[69,69,69,69,69,69,69,69,69,69,69,69],"mad3":[80,80,80,80,80,80,80,80,80,80,80,80],"svq1":[69,69,69,69,66,78,78,78,78,78,78,78],"pan2":[12,12,12,12,12,12,12,12,12,12,12,12],"pan3":[6,6,6,6,6,6,6,6,6,6,6,6],"mad2":[34,34,34,34,34,34,34,34,34,34,34,34]}};
+
+/* ---------- modelo y persistencia ---------- */
+const LS_KEY = 'planificadorProductividades.v2';
+let DB = null;               // { v, planes: {año: plan}, activo }
+let activeCentro = 'bcn1';
+
+function planVacio(año, centros) {
+  const n = diasDelAño(año).length;
+  const p = { año, centros: centros.slice(), porCentro: {} };
+  for (const c of centros) {
+    p.porCentro[c] = {
+      cols: Array(n).fill(0), prod: Array(n).fill(16),
+      colsSM: Array(n).fill(0),
+      parrilla: clone(HORARIOS_DEF[c] || HORARIOS_DEF._def),
+      prodCortas: Array(12).fill(13),   // por mes (las cortas pueden reconfigurarse a lo largo del año)
+      // Comparativa: datos crudos de PMR por día (no se recalculan)
+      extProd: Array(n).fill(null), extProdC: Array(n).fill(null),  // productividades
+      extVeh: Array(n).fill(null),                                  // {tm,tp,ttl,ttc} vehículos por turno
+      extCols: Array(n).fill(null),                                 // columnas planificadas (servidas)
+      smOvr: {}, pomOvr: {}, pomDia: {}, modoSM: 'query',
+      pctTM: pctTMDef(c),                             // %Oferta TM por mes (Carpeta Verde)
+      pctTMmodo: 'negocio',                           // 'negocio' = % del día según la query · 'fijo' = la grid
+      durLarga: 480, durCorta: 420,                   // duración de la RUTA larga/corta (min) — dibuja el gantt
+      callesTM: Array(12).fill(0), callesTP: Array(12).fill(0),
+      largasTT: Array(12).fill(0), cortasTT: Array(12).fill(0),
+      modoTP: 'dinamico', ratioTP: 0.4,
+    };
+  }
+  return p;
+}
+function planDesdeEmbed(e) {
+  const p = planVacio(e.año, e.centros);
+  for (const c of e.centros) {
+    const pc = p.porCentro[c];
+    pc.cols = e.cols[c].slice();
+    pc.prod = e.prod[c].slice();
+    pc.callesTM = e.calles[c].tm.slice();
+    pc.callesTP = e.calles[c].tp.slice();
+    pc.largasTT = (e.largasTT && e.largasTT[c]) ? e.largasTT[c].slice() : e.calles[c].tt.slice();
+    pc.cortasTT = (e.cortasTT && e.cortasTT[c]) ? e.cortasTT[c].slice() : Array(12).fill(0);
+    pc.colsSM = e.colsSM[c].slice();
+    pc.parrilla = clone(HORARIOS_DEF[c] || HORARIOS_DEF._def);
+  }
+  p.meta = 'Productividades: Excel 2026 · Columnas: query 08/07/2026';
+  return p;
+}
+function dbValida(d) {
+  return d && d.v === 2 && d.planes && Object.keys(d.planes).length > 0 &&
+    Object.values(d.planes).every(p => p && p.año && Array.isArray(p.centros) && p.porCentro);
+}
+function cargarDB() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (dbValida(d)) {
+        DB = d;
+        if (!DB.planes[DB.activo]) DB.activo = Object.keys(DB.planes).sort()[0];
+        // compatibilidad con copias guardadas
+        for (const p of Object.values(DB.planes)) for (const [c, pc] of Object.entries(p.porCentro)) {
+          if (!pc.colsSM) pc.colsSM = Array(pc.cols.length).fill(0);
+          if (!pc.modoSM) pc.modoSM = 'query';
+          if (!pc.parrilla) pc.parrilla = clone(HORARIOS_DEF[c] || HORARIOS_DEF._def);
+          if (typeof pc.prodCortas === 'number') pc.prodCortas = Array(12).fill(pc.prodCortas > 0 ? pc.prodCortas : 13);
+          if (!Array.isArray(pc.prodCortas) || pc.prodCortas.length !== 12) pc.prodCortas = Array(12).fill(13);
+          if (!Array.isArray(pc.extProd) || pc.extProd.length !== pc.cols.length) pc.extProd = Array(pc.cols.length).fill(null);
+          if (!Array.isArray(pc.extProdC) || pc.extProdC.length !== pc.cols.length) pc.extProdC = Array(pc.cols.length).fill(null);
+          if (!Array.isArray(pc.extVeh) || pc.extVeh.length !== pc.cols.length) pc.extVeh = Array(pc.cols.length).fill(null);
+          if (!Array.isArray(pc.extCols) || pc.extCols.length !== pc.cols.length) pc.extCols = Array(pc.cols.length).fill(null);
+          if (!pc.pomDia) pc.pomDia = {};
+          if (!Array.isArray(pc.pctTM) || pc.pctTM.length !== 12) pc.pctTM = pctTMDef(c);
+          if (!pc.pctTMmodo) pc.pctTMmodo = 'negocio';
+          if (!(pc.durLarga > 0)) pc.durLarga = 480;
+          if (!(pc.durCorta > 0)) pc.durCorta = 420;
+          if (!pc.cortasTT) pc.cortasTT = (EMBED.cortasTT && EMBED.cortasTT[c]) ? EMBED.cortasTT[c].slice() : Array(12).fill(0);
+          if (!pc.largasTT) pc.largasTT = pc.callesTT ? pc.callesTT.map((v, m) => Math.max(v - (pc.cortasTT[m] || 0), 0)) : ((EMBED.largasTT && EMBED.largasTT[c]) ? EMBED.largasTT[c].slice() : Array(12).fill(0));
+          delete pc.callesTT; delete pc.horario; // formatos antiguos
+        }
+        // migración única: negocio manda por defecto (la mañana de la query)
+        if (!DB.migSMquery) {
+          for (const p of Object.values(DB.planes)) for (const pc of Object.values(p.porCentro)) pc.modoSM = 'query';
+          DB.migSMquery = true;
+        }
+        // migración única: re-siembra la parrilla por colmena y TURNO (mañana/puente/tarde)
+        if (!DB.migParrilla) {
+          for (const p of Object.values(DB.planes)) for (const [c, pc] of Object.entries(p.porCentro)) {
+            pc.parrilla = clone(HORARIOS_DEF[c] || HORARIOS_DEF._def);
+          }
+          DB.migParrilla = true;
+        }
+        return;
+      }
+    }
+  } catch (e) { console.warn(e); }
+  DB = { v: 2, planes: { '2026': planDesdeEmbed(EMBED) }, activo: '2026' };
+}
+let _saveT = null;
+function guardar() {
+  clearTimeout(_saveT);
+  _saveT = setTimeout(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(DB));
+      const s = $('#saved'); if (s) { s.classList.add('on'); setTimeout(() => s.classList.remove('on'), 1600); }
+      nubeAutoPush();
+    } catch (e) { toast('⚠ No se pudo guardar: ' + e.message); }
+  }, 300);
+}
+function plan() { return DB.planes[DB.activo]; }
+
+/* ============================================================
+   ☁ NUBE (Supabase REST) — CONFIGURACIÓN EN CÓDIGO
+   Rellena url y key y la sincronización se activa sola:
+   - guarda en la nube al editar (debounce tras el guardado local)
+   - al abrir, si la nube va por delante, pregunta si cargarla
+   Tabla necesaria en Supabase (SQL Editor, una vez):
+     create table if not exists planificador (
+       clave text primary key,
+       data jsonb not null,
+       updated_at timestamptz default now()
+     );
+     alter table planificador enable row level security;
+     create policy "acceso anon" on planificador
+       for all using (true) with check (true);
+   ⚠ cualquiera con la clave anon puede leer/escribir: solo para el equipo.
+   ============================================================ */
+const NUBE_CONFIG = {
+  url: '',            // ← URL del proyecto, p.ej. 'https://xxxx.supabase.co'
+  key: '',            // ← clave anon (public) del proyecto
+  clave: 'reparto',   //   nombre del documento (una fila por documento)
+  auto: true,         //   guardar en la nube automáticamente al editar
+};
+const NUBE_KEY = 'planificadorNube.v1';   // solo guarda lastTs en local
+function nubeCfg() { let extra = {}; try { extra = JSON.parse(localStorage.getItem(NUBE_KEY)) || {}; } catch (e) {} return { ...NUBE_CONFIG, lastTs: extra.lastTs }; }
+function nubeCfgSave(c) { localStorage.setItem(NUBE_KEY, JSON.stringify({ lastTs: c.lastTs })); }
+function nubeOk(c) { return c && /^https:\/\//.test(c.url || '') && (c.key || '').length > 20 && (c.clave || '').trim(); }
+async function nubeFetch(cfg, method, path, body) {
+  const res = await fetch(cfg.url.replace(/\/$/, '') + '/rest/v1/' + path, {
+    method,
+    headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key, 'Content-Type': 'application/json',
+               ...(method === 'POST' ? { Prefer: 'resolution=merge-duplicates,return=minimal' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' — ' + (await res.text()).slice(0, 180));
+  return method === 'GET' ? res.json() : null;
+}
+function nubeDot(on, titulo) { const d = $('#nubeDot'); if (!d) return; d.classList.toggle('on', !!on); if (titulo) d.title = titulo; }
+async function nubePush(manual) {
+  const cfg = nubeCfg(); if (!nubeOk(cfg)) { if (manual) toast('⚠ Nube sin configurar (NUBE_CONFIG en el código)'); return; }
+  try {
+    const ts = new Date().toISOString();
+    await nubeFetch(cfg, 'POST', 'planificador?on_conflict=clave', [{ clave: cfg.clave.trim(), data: DB, updated_at: ts }]);
+    cfg.lastTs = ts; nubeCfgSave(cfg);
+    nubeDot(true, 'Sincronizado con Supabase · ' + new Date(ts).toLocaleString('es-ES'));
+    setTimeout(() => nubeDot(false), 1600);
+    if (manual) toast('☁ Guardado en la nube');
+  } catch (e) { if (manual) toast('⚠ Nube: ' + e.message); else console.warn('nube', e); }
+}
+let _nubeT = null;
+function nubeAutoPush() { const cfg = nubeCfg(); if (!cfg.auto || !nubeOk(cfg)) return; clearTimeout(_nubeT); _nubeT = setTimeout(() => nubePush(false), 2500); }
+async function nubePull(silencioso) {
+  const cfg = nubeCfg(); if (!nubeOk(cfg)) { if (!silencioso) toast('⚠ Nube sin configurar (NUBE_CONFIG en el código)'); return; }
+  try {
+    const rows = await nubeFetch(cfg, 'GET', 'planificador?clave=eq.' + encodeURIComponent(cfg.clave.trim()) + '&select=data,updated_at');
+    if (!rows.length) { if (!silencioso) toast('☁ No hay ningún documento «' + cfg.clave + '» en la nube'); return; }
+    const nuevo = rows[0].data;
+    if (!dbValida(nuevo)) { toast('⚠ El documento de la nube no es válido'); return; }
+    if (!confirm('Sustituir TODOS los planes locales por los de la nube (' + new Date(rows[0].updated_at).toLocaleString('es-ES') + ')?')) return;
+    DB = nuevo; if (!DB.planes[DB.activo]) DB.activo = Object.keys(DB.planes)[0];
+    if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0];
+    cfg.lastTs = rows[0].updated_at; nubeCfgSave(cfg);
+    localStorage.setItem(LS_KEY, JSON.stringify(DB));
+    renderPlanSel(); renderRail(); renderView(); toast('☁ Cargado de la nube');
+  } catch (e) { toast('⚠ Nube: ' + e.message); }
+}
+// al arrancar: si la nube está configurada y va por delante, ofrece cargarla
+async function nubeCheckInicio() {
+  const cfg = nubeCfg(); if (!nubeOk(cfg)) return;
+  try {
+    const rows = await nubeFetch(cfg, 'GET', 'planificador?clave=eq.' + encodeURIComponent(cfg.clave.trim()) + '&select=updated_at');
+    if (rows.length && (!cfg.lastTs || rows[0].updated_at > cfg.lastTs)) await nubePull(true);
+    else if (!rows.length) nubePush(false);   // primera vez: siembra el documento
+  } catch (e) { console.warn('nube', e); }
+}
+
+/* ---------- cálculo por colmena ---------- */
+function pomAuto(pc, dias) {
+  // POM del mes = máximo de columnas diarias del mes
+  const out = Array(12).fill(0);
+  dias.forEach((d, i) => { const m = mesDe(d); if (pc.cols[i] > out[m]) out[m] = pc.cols[i]; });
+  return out;
+}
+function pomMes(pc, dias) {
+  const auto = pomAuto(pc, dias);
+  return MESES.map((_, m) => {
+    const ovr = pc.pomOvr[m];
+    return { valor: (ovr != null) ? ovr : auto[m], auto: auto[m], forzado: ovr != null };
+  });
+}
+function calcColmena(c) {
+  const p = plan(), pc = p.porCentro[c];
+  const dias = diasDelAño(p.año);
+  const poms = pomMes(pc, dias);
+  const rows = dias.map((fecha, i) => {
+    const m = mesDe(fecha);
+    const pomDia = (pc.pomDia || {})[i] != null ? pc.pomDia[i] : poms[m].valor;   // POM editable por día
+    // %TM del día: MANDA NEGOCIO (reparto SM real de la query); la grid es el
+    // respaldo para días sin dato y el modo 'fijo' la impone siempre
+    let pct = (pc.pctTM || [])[m];
+    if (pc.pctTMmodo !== 'fijo' && pc.modoSM === 'query' && pc.colsSM && pc.colsSM[i] > 0 && pc.cols[i] > 0)
+      pct = Math.min(pc.colsSM[i], pc.cols[i]) / pc.cols[i];
+    const out = calcDiaV2({
+      pom: pomDia, callesTM: pc.callesTM[m], callesTP: pc.callesTP[m],
+      largasTT: (pc.largasTT || [])[m] || 0, cortasTT: (pc.cortasTT || [])[m] || 0,
+      prod: pc.prod[i], oferta: pc.cols[i],
+      ofertaSM: pc.smOvr[i] != null ? pc.smOvr[i] : undefined,
+      ofertaSMQuery: (pc.modoSM === 'query' && pc.colsSM && pc.colsSM[i] > 0) ? pc.colsSM[i] : undefined,
+      prodCortas: pc.prodCortas[m], modoTP: pc.modoTP, ratioTP: pc.ratioTP, pctTM: pct,
+    });
+    return { fecha, i, m, ds: dsem(fecha), cols: pc.cols[i], prod: pc.prod[i], pom: pomDia,
+             pomManual: (pc.pomDia || {})[i] != null, smManual: pc.smOvr[i] != null, ...out };
+  });
+  return { rows, poms, pc, dias };
+}
+// resumen mensual del POM (con las calles y la prod media del mes)
+function resumenMes(c) {
+  const p = plan(), pc = p.porCentro[c];
+  const dias = diasDelAño(p.año);
+  const poms = pomMes(pc, dias);
+  return MESES.map((_, m) => {
+    const idx = dias.map((d, i) => i).filter(i => mesDe(dias[i]) === m);
+    const prodMedia = idx.reduce((a, i) => a + pc.prod[i], 0) / idx.length;
+    const out = calcDiaV2({
+      pom: poms[m].valor, callesTM: pc.callesTM[m], callesTP: pc.callesTP[m],
+      largasTT: (pc.largasTT || [])[m] || 0, cortasTT: (pc.cortasTT || [])[m] || 0,
+      prod: prodMedia, oferta: poms[m].valor, modoTP: pc.modoTP, ratioTP: pc.ratioTP,
+      prodCortas: pc.prodCortas[m], pctTM: (pc.pctTM || [])[m],
+    });
+    const diasOp = idx.filter(i => pc.cols[i] > 0).length;
+    return { m, prodMedia, diasOp, pom: poms[m], ...out };
+  });
+}
+
+
+/* ============================================================
+   UI (rediseño): rail de colmenas + secciones + gráficos
+   ============================================================ */
+const SECCIONES = [['dia','Día a día'],['mensual','Mensual'],['params','Parámetros'],['oleadas','Oleadas'],['cmp','Comparativa'],['guia','Guía']];
+let seccion = 'dia';
+let _diaMes = 0;          // 0 = año, 1..12 = mes (filtro Vista diaria)
+let _olFecha = null;
+let _rangoOpen = false;   // editor de rango (Día a día)
+
+function covColor(pct) { return pct >= 99.9 ? 'var(--good)' : pct >= 95 ? 'var(--warn)' : 'var(--bad)'; }
+function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+function h(html) { const d = el('div'); d.innerHTML = html; return d.firstElementChild; }
+
+/* ---------- rail de colmenas ---------- */
+function renderRail() {
+  const rail = $('#rail'); rail.textContent = '';
+  const p = plan();
+  for (const c of p.centros) {
+    const res = resumenMes(c);
+    const { rows } = calcColmena(c);
+    const op = rows.filter(r => r.cols > 0);
+    const pomMax = Math.max(0, ...res.map(r => r.pom.valor));
+    const ko = op.filter(r => !r.cubierto).length;
+    const b = el('button', 'colm' + (c === activeCentro ? ' on' : '')); b.style.setProperty('--cc', colmColor(c));
+    b.appendChild(el('span', 'cn', c.toUpperCase()));
+    const meta = el('span', 'cm');
+    meta.innerHTML = '<span class="cpom">' + fmt0(pomMax) + '</span>' + (ko ? '<span style="color:var(--bad)">' + ko + ' KO</span>' : '<span style="color:var(--good)">OK</span>');
+    b.appendChild(meta);
+    b.addEventListener('click', () => { activeCentro = c; renderRail(); renderView(); });
+    rail.appendChild(b);
+  }
+}
+// iconos del menú (trazo fino, estilo cuadro de mando)
+const SEG_ICON = {
+  dia: '<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+  mensual: '<path d="M4 20V10M10 20V4M16 20v-8M21 20H3"/>',
+  params: '<path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2.5"/><circle cx="8" cy="16" r="2.5"/>',
+  oleadas: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2.5"/>',
+  cmp: '<path d="M8 4L4 8l4 4M4 8h12M16 12l4 4-4 4M20 16H8"/>',
+  guia: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5H6.5A2.5 2.5 0 0 0 4 21zM4 18.5V5.5"/><path d="M9 8h7"/>',
+};
+function renderSeg() {
+  const seg = $('#seg'); seg.textContent = '';
+  for (const [k, t] of SECCIONES) {
+    const b = el('button', k === seccion ? 'on' : '');
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (SEG_ICON[k] || '') + '</svg>' + t;
+    b.addEventListener('click', () => { seccion = k; renderSeg(); renderView(); });
+    seg.appendChild(b);
+  }
+}
+function renderView() {
+  tipHide();
+  $('#navCol').innerHTML = '<span style="color:' + colmColor(activeCentro) + '">' + activeCentro.toUpperCase() + '</span><span class="yr">' + plan().año + '</span>';
+  const v = $('#view'); v.className = 'view' + (seccion === 'dia' || seccion === 'oleadas' || seccion === 'cmp' ? ' flush' : ''); v.textContent = '';
+  if (seccion === 'dia') viewDia(v);
+  else if (seccion === 'mensual') viewMensual(v);
+  else if (seccion === 'params') viewParams(v);
+  else if (seccion === 'oleadas') viewOleadas(v);
+  else if (seccion === 'cmp') viewCmp(v);
+  else if (seccion === 'guia') viewGuia(v);
+}
+function tocado() {
+  guardar();
+  // preservar el scroll al re-renderizar tras editar (no saltar al principio)
+  const v = $('#view'); const inner = v.querySelector('.vscroll');
+  const sTop = v.scrollTop, iTop = inner ? inner.scrollTop : 0;
+  renderRail(); renderView();
+  const v2 = $('#view'); v2.scrollTop = sTop;
+  const inner2 = v2.querySelector('.vscroll'); if (inner2) inner2.scrollTop = iTop;
+}
+// clic en una barra → llevar a la fila de ese día en la tabla (con destello)
+function scrollFila(id) {
+  const elm = document.getElementById(id); if (!elm) return;
+  elm.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  elm.classList.add('flash'); setTimeout(() => elm.classList.remove('flash'), 1400);
+}
+
+/* ---------- helpers UI ---------- */
+function card(title, sub, tag, tagCls) {
+  const c = el('div', 'card');
+  const hd = el('div', 'card-h');
+  hd.appendChild(el('span', 'card-t', title));
+  if (sub) hd.appendChild(el('span', 'card-s', sub));
+  if (tag) hd.appendChild(el('span', 'tag ' + (tagCls || ''), tag));
+  c.appendChild(hd);
+  const b = el('div', 'card-b'); c.appendChild(b);
+  c._b = b;
+  return c;
+}
+function kpi(l, val, s, color) {
+  const k = el('div', 'kpi');
+  k.appendChild(el('div', 'kl', l));
+  const vv = el('div', 'kv', val); if (color) vv.style.color = color;
+  k.appendChild(vv);
+  if (s) k.appendChild(el('div', 'ks', s));
+  return k;
+}
+function mgrid(vals, opts) {
+  const g = el('div', 'mgrid');
+  vals.forEach((v, m) => {
+    const cell = el('div', 'mcell');
+    cell.appendChild(el('label', null, MESES[m]));
+    const inp = el('input'); inp.type = 'text'; inp.value = v.valor; if (v.ovr) inp.className = 'ovr';
+    if (opts.placeholder) inp.placeholder = opts.placeholder;
+    inp.addEventListener('change', () => {
+      if (inp.value.trim() === '' && opts.allowEmpty) { opts.onchange(m, null); return; }
+      const n = numES(inp.value);
+      if (!isFinite(n) || n < 0) { toast('⚠ Valor no válido'); inp.value = v.valor; return; }
+      opts.onchange(m, n);
+    });
+    cell.appendChild(inp);
+    if (v.sub != null) cell.appendChild(el('div', 'sub', v.sub));
+    g.appendChild(cell);
+  });
+  return g;
+}
+
+/* ---------- gráficos SVG ---------- */
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(t, a) { const e = document.createElementNS(SVGNS, t); for (const k in a) e.setAttribute(k, a[k]); return e; }
+const CT = { tm: '#5b8cff', ttl: '#34d399', ttc: '#fbbf24', tp: '#b47cff', cap: '#8b93a8', bad: '#f87171' };
+// color identitario de cada colmena (como los iconos: abejas de colores, PAN = pan)
+const COLM_COLOR = { bcn1: '#5b8cff', vlc1: '#22c55e', mad1: '#ef4444', alc1: '#eab308', svq1: '#a855f7', mad2: '#ec4899', mad3: '#f97316', pan2: '#d9a760', pan3: '#b5835a' };
+const colmColor = c => COLM_COLOR[c] || '#8b93a8';
+// color por productividad: azul (más baja del año) → verde (más alta).
+// Sin rojos: no es una alarma, solo una escala.
+function prodColor(v, min, max) { if (!(v > 0) || max <= min) return 'hsl(140 55% 52%)'; const r = Math.max(0, Math.min(1, (v - min) / (max - min))); return 'hsl(' + Math.round(215 - r * 75) + ' 62% 56%)'; }
+// chips de meses: más grandes y coloreados por la productividad media del mes
+// (verde = la más alta del año, rojo = la más baja); AÑO neutro
+function mesesChips(pc, dias, sel, onClick) {
+  const chips = el('div', 'chips');
+  const prodMes = MESES.map((_, mi) => { let s = 0, n = 0; dias.forEach((d, i) => { if (mesDe(d) === mi) { s += pc.prod[i]; n++; } }); return n ? s / n : 0; });
+  const act = prodMes.filter(x => x > 0); const minP = act.length ? Math.min(...act) : 0, maxP = act.length ? Math.max(...act) : 0;
+  const mk = (val, t, plain, col) => { const b = el('button', 'chip' + (plain ? ' plain' : '') + (sel === val ? ' on' : ''), t); if (col) b.style.setProperty('--pc', col); b.title = plain ? 'todo el año' : t + ': prod media ' + fmt2(prodMes[val - 1]); b.addEventListener('click', () => onClick(val)); return b; };
+  chips.appendChild(mk(0, 'AÑO', true));
+  MESES.forEach((mm, i) => chips.appendChild(mk(i + 1, mm, false, prodColor(prodMes[i], minP, maxP))));
+  return chips;
+}
+let _tip;
+function tip() { if (!_tip) { _tip = el('div'); _tip.style.cssText = 'position:fixed;pointer-events:none;background:var(--elevated);border:1px solid var(--border2);border-radius:9px;padding:8px 11px;font-family:var(--mono);font-size:11px;color:var(--text);z-index:200;display:none;box-shadow:var(--sh);white-space:nowrap;line-height:1.5'; document.body.appendChild(_tip); } return _tip; }
+function tipShow(x, y, html) { const t = tip(); t.innerHTML = html; t.style.display = 'block'; const r = t.getBoundingClientRect(); let px = x + 14, py = y + 12; if (px + r.width > innerWidth - 8) px = x - r.width - 12; if (py + r.height > innerHeight - 8) py = y - r.height - 10; t.style.left = px + 'px'; t.style.top = py + 'px'; }
+function tipHide() { if (_tip) _tip.style.display = 'none'; }
+function legend(items) {
+  const l = el('div', 'lgd');
+  for (const it of items) { const s = el('span'); const sw = el('span', it.line ? 'swl' : 'sw'); if (!it.line) sw.style.background = it.c; s.append(sw, document.createTextNode(it.t)); l.appendChild(s); }
+  return l;
+}
+function niceMax(v) { if (v <= 0) return 10; const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10; return m * p * (v / (m * p) > 0.98 ? 1.12 : 1); }
+
+// anillo de cobertura (donut)
+function ring(pct, size) {
+  size = size || 96; const r = size / 2 - 8, cx = size / 2, cy = size / 2, C = 2 * Math.PI * r;
+  const col = covColor(pct);
+  const svg = sv('svg', { viewBox: `0 0 ${size} ${size}`, width: size, height: size });
+  svg.appendChild(sv('circle', { cx, cy, r, fill: 'none', stroke: 'var(--line)', 'stroke-width': 9 }));
+  svg.appendChild(sv('circle', { cx, cy, r, fill: 'none', stroke: col, 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-dasharray': C, 'stroke-dashoffset': C * (1 - Math.min(pct, 100) / 100), transform: `rotate(-90 ${cx} ${cy})` }));
+  const w = el('div', 'cov-ring'); w.appendChild(svg);
+  const lab = el('div', 'cov-pct'); lab.innerHTML = '<b style="color:' + col + '">' + (pct >= 99.95 ? '100' : pct.toFixed(1)) + '%</b><span>cobertura</span>';
+  w.appendChild(lab);
+  return w;
+}
+// barras apiladas. data:[{x,cap,alert,vals:{k},tip}] series:[{key,color}]
+function stacked(data, series, opts) {
+  opts = opts || {};
+  const W = opts.w || 1140, H = opts.h || 210, mL = 42, mR = 10, mT = 8, mB = 24;
+  const pw = W - mL - mR, ph = H - mT - mB;
+  const tots = data.map(d => series.reduce((a, s) => a + (d.vals[s.key] || 0), 0));
+  const ymax = niceMax(Math.max(1, ...tots, ...data.map(d => d.cap || 0)));
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, preserveAspectRatio: 'none' });
+  svg.style.display = 'block';
+  for (let g = 0; g <= 4; g++) { const y = mT + ph - ph * g / 4; svg.appendChild(sv('line', { x1: mL, x2: W - mR, y1: y, y2: y, stroke: 'var(--line)', 'stroke-width': 1 })); const tx = sv('text', { x: mL - 5, y: y + 3, 'text-anchor': 'end', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); tx.textContent = nf0.format(Math.round(ymax * g / 4)); svg.appendChild(tx); }
+  const n = data.length, bw = Math.min(opts.bw || 24, pw / n * 0.72);
+  data.forEach((d, i) => {
+    const cx = mL + pw * (i + 0.5) / n; let acc = 0;
+    series.forEach(s => { const v = d.vals[s.key] || 0; if (v <= 0) return; const y0 = mT + ph - ph * acc / ymax, y1 = mT + ph - ph * (acc + v) / ymax; svg.appendChild(sv('rect', { x: cx - bw / 2, y: y1, width: bw, height: Math.max(y0 - y1 - 1, .5), fill: s.color, rx: 2 })); acc += v; });
+    if (d.cap) { const y = mT + ph - ph * d.cap / ymax; svg.appendChild(sv('line', { x1: cx - bw / 2 - 2, x2: cx + bw / 2 + 2, y1: y, y2: y, stroke: CT.cap, 'stroke-width': 1.5, 'stroke-dasharray': '3 2' })); }
+    if (d.top != null) { const yTop = mT + ph - ph * Math.max(acc, d.cap || 0) / ymax; const tt = sv('text', { x: cx, y: Math.max(9, yTop - 5), 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 9.5, 'font-weight': 700, 'font-family': 'var(--mono)' }); tt.textContent = d.top; svg.appendChild(tt); }
+    if (d.alert) svg.appendChild(sv('rect', { x: cx - 2, y: mT + ph + 6, width: 4, height: 4, rx: 1, fill: CT.bad }));
+    const xt = sv('text', { x: cx, y: H - 7, 'text-anchor': 'middle', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); xt.textContent = d.x; svg.appendChild(xt);
+    const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = 'pointer';
+    hit.addEventListener('pointermove', ev => tipShow(ev.clientX, ev.clientY, d.tip)); hit.addEventListener('pointerleave', tipHide); if (opts.onClick) { hit.addEventListener('click', () => opts.onClick(i, d)); }
+    svg.appendChild(hit);
+  });
+  const w = el('div'); w.style.overflowX = 'auto'; w.appendChild(svg); return w;
+}
+// barras divergentes (± alrededor de 0) para las desviaciones de la Comparativa
+function divBars(data, opts) {
+  opts = opts || {};
+  const W = opts.w || 1140, H = opts.h || 190, mL = 46, mR = 10, mT = 10, mB = 22;
+  const pw = W - mL - mR, ph = H - mT - mB;
+  const mx = Math.max(0.2, ...data.map(d => Math.abs(d.v || 0)));
+  const yDe = v => mT + ph / 2 - (v / mx) * (ph / 2);
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, preserveAspectRatio: 'none' });
+  svg.style.display = 'block';
+  for (const g of [mx, mx / 2, 0, -mx / 2, -mx]) {
+    const yy = yDe(g);
+    svg.appendChild(sv('line', { x1: mL, x2: W - mR, y1: yy, y2: yy, stroke: g === 0 ? 'var(--border2)' : 'var(--line)', 'stroke-width': 1 }));
+    const tx = sv('text', { x: mL - 5, y: yy + 3, 'text-anchor': 'end', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); tx.textContent = (g > 0 ? '+' : '') + (Math.round(g * 100) / 100); svg.appendChild(tx);
+  }
+  const n = data.length, bw = Math.min(22, pw / n * 0.7);
+  const thr = opts.thr != null ? opts.thr : 0.1, cPos = opts.cPos || CT.ttc, cNeg = opts.cNeg || CT.bad;
+  data.forEach((d, i) => {
+    const cx = mL + pw * (i + 0.5) / n;
+    if (d.v != null) {
+      const y0 = yDe(0), y1 = yDe(d.v);
+      svg.appendChild(sv('rect', { x: cx - bw / 2, y: Math.min(y0, y1), width: bw, height: Math.max(Math.abs(y0 - y1), 1.2), fill: d.v <= -thr ? cNeg : d.v >= thr ? cPos : '#4b5563', rx: 2 }));
+    }
+    const xt = sv('text', { x: cx, y: H - 6, 'text-anchor': 'middle', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); xt.textContent = d.x; svg.appendChild(xt);
+    const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = 'pointer';
+    hit.addEventListener('pointermove', ev => tipShow(ev.clientX, ev.clientY, d.tip)); hit.addEventListener('pointerleave', tipHide); if (opts.onClick) { hit.addEventListener('click', () => opts.onClick(i, d)); }
+    svg.appendChild(hit);
+  });
+  const w = el('div'); w.style.overflowX = 'auto'; w.appendChild(svg); return w;
+}
+
+/* ---------- VISTA: Día a día ---------- */
+function viewDia(v) {
+  const p = plan(), pc = p.porCentro[activeCentro];
+  const { rows } = calcColmena(activeCentro);
+
+  // barra de filtro por mes (meses coloreados por productividad)
+  const bar = el('div'); bar.style.cssText = 'padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0';
+  bar.appendChild(mesesChips(pc, diasDelAño(p.año), _diaMes, v2 => { _diaMes = v2; renderView(); }));
+  const hint = el('span', null, 'Columnas, prod y Oferta SM editables por día'); hint.style.cssText = 'margin-left:auto;font-size:11px;color:var(--faint)';
+  bar.appendChild(hint);
+  const bRango = el('button', 'btn sm' + (_rangoOpen ? ' pri' : ''), 'Editar rango');
+  bRango.addEventListener('click', () => { _rangoOpen = !_rangoOpen; renderView(); });
+  bar.appendChild(bRango);
+  v.appendChild(bar);
+
+  // editor de rango: aplicar un valor a varios días de golpe
+  if (_rangoOpen) {
+    const dias = diasDelAño(p.año);
+    const rb = el('div'); rb.style.cssText = 'padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;flex-shrink:0';
+    const fld = (lbl, inp) => { const f = el('div', 'field'); f.appendChild(el('label', null, lbl)); f.appendChild(inp); return f; };
+    const selC = el('select'); for (const [val, t] of [['prod', 'Productividad'], ['cols', 'Negocio (columnas)'], ['pom', 'POM del día'], ['sm', 'Oferta SM']]) { const o = el('option', null, t); o.value = val; selC.appendChild(o); }
+    const iVal = el('input'); iVal.type = 'text'; iVal.style.width = '90px'; iVal.placeholder = 'valor';
+    const mIni = _diaMes ? p.año + '-' + String(_diaMes).padStart(2, '0') : p.año + '-01';
+    const dIni = el('input'); dIni.type = 'date'; dIni.min = p.año + '-01-01'; dIni.max = p.año + '-12-31'; dIni.value = mIni + '-01';
+    const dFin = el('input'); dFin.type = 'date'; dFin.min = p.año + '-01-01'; dFin.max = p.año + '-12-31';
+    dFin.value = _diaMes ? dias.filter(d => mesDe(d) === _diaMes - 1).slice(-1)[0] : p.año + '-12-31';
+    const chkOp = el('input'); chkOp.type = 'checkbox'; chkOp.checked = true; chkOp.style.width = 'auto';
+    const lOp = el('label'); lOp.style.cssText = 'display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--dim);padding-bottom:8px'; lOp.append(chkOp, document.createTextNode('solo días con columnas'));
+    const bGo = el('button', 'btn pri sm', 'Aplicar al rango'); bGo.style.marginBottom = '2px';
+    bGo.addEventListener('click', () => {
+      const n = numES(iVal.value);
+      if (!isFinite(n) || n < 0) { toast('⚠ Valor no válido'); return; }
+      if (!dIni.value || !dFin.value || dIni.value > dFin.value) { toast('⚠ Rango de fechas no válido'); return; }
+      const campo = selC.value; let cnt = 0;
+      dias.forEach((d, i) => {
+        if (d < dIni.value || d > dFin.value) return;
+        if (chkOp.checked && !(pc.cols[i] > 0) && campo !== 'cols') return;
+        if (campo === 'prod') { if (n > 0) { pc.prod[i] = n; cnt++; } }
+        else if (campo === 'cols') { pc.cols[i] = n; cnt++; }
+        else if (campo === 'pom') { pc.pomDia[i] = n; cnt++; }
+        else if (campo === 'sm') { pc.smOvr[i] = n; cnt++; }
+      });
+      tocado(); toast(selC.options[selC.selectedIndex].text + ' = ' + iVal.value + ' aplicado a ' + cnt + ' días');
+    });
+    rb.append(fld('Campo', selC), fld('Valor', iVal), fld('Desde', dIni), fld('Hasta', dFin), lOp, bGo);
+    rb.appendChild(el('span', 'note', 'POM y Oferta SM se aplican como override del día (bórralos dejando la celda vacía).'));
+    v.appendChild(rb);
+  }
+
+  const enMes = r => _diaMes === 0 || r.m === _diaMes - 1;
+  const rowsF = rows.filter(enMes);
+  const op = rowsF.filter(r => r.cols > 0);
+  const totCols = op.reduce((a, r) => a + r.cols, 0);
+  const totServ = op.reduce((a, r) => a + r.servido, 0);
+  const totFaltan = op.reduce((a, r) => a + r.sinServir, 0);
+  const pctCob = totCols > 0 ? totServ / totCols * 100 : 100;
+  const ko = op.filter(r => !r.cubierto);
+  const pico = op.length ? Math.max(...op.map(r => r.cols)) : 0;
+  const picoD = op.find(r => r.cols === pico);
+  const vehMax = op.length ? Math.max(...op.map(r => r.veh)) : 0;
+
+  const scroll = el('div', 'vscroll'); scroll.style.cssText = 'flex:1;overflow:auto;padding:18px 20px';
+
+  // banner de cobertura
+  const cov = el('div', 'cov');
+  cov.appendChild(ring(pctCob));
+  const facts = el('div', 'cov-facts');
+  const fact = (l, val, s, col) => { const f = el('div', 'fact'); f.appendChild(el('div', 'fl', l)); const fv = el('div', 'fv', val); if (col) fv.style.color = col; f.appendChild(fv); if (s) f.appendChild(el('div', 'fs', s)); return f; };
+  facts.append(
+    fact('Días no cubiertos', fmt0(ko.length), 'de ' + fmt0(op.length) + ' operativos', ko.length ? 'var(--bad)' : 'var(--good)'),
+    fact('Columnas sin servir', fmt0(totFaltan), 'de ' + fmt0(totCols) + ' ofertadas', totFaltan ? 'var(--bad)' : 'var(--good)'),
+    fact('Pico columnas', fmt0(pico), picoD ? picoD.fecha.slice(8, 10) + '/' + picoD.fecha.slice(5, 7) : '', 'var(--accent)'),
+    fact('Vehículos máx', fmt0(vehMax), (_diaMes ? MESES_L[_diaMes - 1] : 'año'), 'var(--good)'),
+  );
+  cov.appendChild(facts);
+  scroll.appendChild(cov);
+
+  // gráfico de rutas
+  const cg = card('Rutas por ' + (_diaMes ? 'día' : 'mes'), _diaMes ? MESES_L[_diaMes - 1] : 'media/día operativo · el nº sobre cada barra = vehículos máx del mes', 'vehículos');
+  cg._b.appendChild(legend([{ c: CT.tm, t: 'TM' }, { c: CT.ttl, t: 'TT largas' }, { c: CT.ttc, t: 'TT cortas' }, { c: CT.tp, t: 'TP' }, { line: 1, t: 'calles' }, { c: CT.bad, t: 'no cubierto' }]));
+  let cd;
+  if (_diaMes === 0) {
+    cd = MESES.map((mm, mi) => {
+      const rm = rows.filter(r => r.m === mi && r.cols > 0);
+      const avg = f => rm.length ? Math.round(rm.reduce((a, r) => a + f(r), 0) / rm.length) : 0;
+      const capm = rm.length ? Math.round(rm.reduce((a, r) => a + Math.max(r.vehTM, r.vehTT) + r.vehTP, 0) / rm.length) : 0;
+      const tm = avg(r => r.vehTM), ttl = avg(r => r.rutasTTL), ttc = avg(r => r.rutasTTC), tp = avg(r => r.vehTP);
+      const nk = rm.filter(r => !r.cubierto).length;
+      const vMax = rm.length ? Math.max(...rm.map(r => r.veh)) : 0;
+      return { x: mm, mes: mi, cap: capm, alert: nk > 0, top: rm.length ? fmt0(vMax) : null, vals: { tm, ttl, ttc, tp }, tip: '<b>' + MESES_L[mi] + '</b> · media/día<br>TM ' + tm + ' · TTL ' + ttl + ' · TTC ' + ttc + ' · TP ' + tp + '<br>vehículos máx del mes: <b>' + fmt0(vMax) + '</b>' + (nk ? '<br><span style="color:var(--bad)">' + nk + ' días KO</span>' : '') + '<br><span style="color:var(--faint)">clic → ver el mes</span>' };
+    });
+  } else {
+    cd = op.map(r => ({ x: r.fecha.slice(8, 10), fecha: r.fecha, cap: Math.max(r.vehTM, r.vehTT) + r.vehTP, alert: !r.cubierto, vals: { tm: r.vehTM, ttl: r.rutasTTL, ttc: r.rutasTTC, tp: r.vehTP }, tip: '<b>' + fechaLarga(r.fecha) + '</b><br>' + fmt0(r.cols) + ' col · ' + (r.cubierto ? '<span style="color:var(--good)">100%</span>' : '<span style="color:var(--bad)">' + r.cobPct.toFixed(1) + '% · faltan ' + fmt0(r.sinServir) + '</span>') + '<br>TM ' + r.vehTM + ' · TTL ' + r.rutasTTL + ' · TTC ' + r.rutasTTC + ' · TP ' + r.vehTP + '<br><span style="color:var(--faint)">clic → ir a la fila</span>' }));
+  }
+  if (cd.length) cg._b.appendChild(stacked(cd, [{ key: 'tm', color: CT.tm }, { key: 'ttl', color: CT.ttl }, { key: 'ttc', color: CT.ttc }, { key: 'tp', color: CT.tp }], { h: 200, onClick: (i, d) => { if (_diaMes === 0) { _diaMes = d.mes + 1; renderView(); } else if (d.fecha) scrollFila('fd-' + d.fecha); } }));
+  else cg._b.appendChild(el('div', 'note', 'Sin días operativos en el periodo.'));
+  scroll.appendChild(cg);
+
+  // tabla diaria
+  const ct = card('Detalle diario', op.length + ' días con columnas');
+  ct._b.style.padding = '0';
+  const tw = el('div', 'twrap'); tw.style.maxHeight = '58vh';
+  tw.appendChild(tablaDia(pc, rowsF, rows));
+  ct._b.appendChild(tw);
+  scroll.appendChild(ct);
+  v.appendChild(scroll);
+}
+
+const HDIA = ['Fecha','Sem','Negocio','Prod','POM','Of.SM','Of.ST','|Col TM','Col TT','Col TP','|Servido','Δ neg','% Cob','|TM','TT-L','TT-C','TP','Veh','|Limita'];
+function tablaDia(pc, rowsF, rowsAll) {
+  const tbl = el('table');
+  const thead = el('thead'); const trh = el('tr');
+  HDIA.forEach((hh, i) => { const grp = hh.startsWith('|'); const th = el('th', (grp ? 'grp ' : '') + (i < 2 ? 'l' : ''), grp ? hh.slice(1) : hh); if (i === 0) th.style.cssText += ';position:sticky;left:0;z-index:6;background:var(--surface2)'; trh.appendChild(th); });
+  thead.appendChild(trh); tbl.appendChild(thead);
+  const tb = el('tbody'); const frag = document.createDocumentFragment();
+  const statMes = {};
+  for (let m = 0; m < 12; m++) { const rm = rowsAll.filter(r => r.m === m && r.cols > 0); statMes[m] = { d: rm.length, pico: rm.length ? Math.max(...rm.map(r => r.cols)) : 0, ko: rm.filter(r => !r.cubierto).length }; }
+  let cur = -1;
+  for (const r of rowsF) {
+    if (r.m !== cur) { cur = r.m; const tr = el('tr', 'msep'); const td = el('td'); td.colSpan = HDIA.length; const s = statMes[r.m]; td.textContent = MESES_L[r.m] + '  ·  ' + s.d + ' días · pico ' + fmt0(s.pico) + (s.ko ? ' · ' + s.ko + ' KO' : ''); tr.appendChild(td); frag.appendChild(tr); }
+    const sin = r.cols <= 0, wknd = r.ds >= 5;
+    const tr = el('tr', (!sin && !r.cubierto ? 'rowbad ' : '') + (wknd ? 'weekend' : '')); tr.id = 'fd-' + r.fecha;
+    const tdF = el('td', 'l'); tdF.style.cssText = 'position:sticky;left:0;background:var(--surface);' + (wknd ? 'color:var(--faint)' : ''); tdF.textContent = r.fecha.slice(8, 10) + '/' + r.fecha.slice(5, 7) + ' ' + DSEM[r.ds]; tr.appendChild(tdF);
+    tr.appendChild(el('td', null, 'S' + semanaISO(r.fecha)));
+    // columnas editable
+    const tdC = el('td'); const ic = el('input', 'cell-inp'); ic.value = r.cols; ic.addEventListener('change', () => { const n = numES(ic.value); if (!isFinite(n) || n < 0) { ic.value = r.cols; return; } pc.cols[r.i] = n; tocado(); }); tdC.appendChild(ic); tr.appendChild(tdC);
+    const tdP = el('td'); const ip = el('input', 'cell-inp'); ip.style.width = '50px'; ip.value = r.prod; ip.addEventListener('change', () => { const n = numES(ip.value); if (!isFinite(n) || n <= 0) { ip.value = r.prod; return; } pc.prod[r.i] = n; tocado(); }); tdP.appendChild(ip); tr.appendChild(tdP);
+    // POM editable por día (vacío = el del mes)
+    const tdPom = el('td'); const ipm = el('input', 'cell-inp' + (r.pomManual ? ' ovr' : '')); ipm.style.width = '52px'; ipm.value = sin && !r.pomManual ? '' : fmt0(r.pom); ipm.placeholder = 'mes';
+    ipm.addEventListener('change', () => { if (ipm.value.trim() === '') { delete pc.pomDia[r.i]; tocado(); return; } const n = numES(ipm.value); if (!isFinite(n) || n < 0) { ipm.value = fmt0(r.pom); return; } pc.pomDia[r.i] = n; tocado(); });
+    tdPom.appendChild(ipm); tr.appendChild(tdPom);
+    // oferta SM editable
+    const tdQ = el('td'); const iq = el('input', 'cell-inp' + (r.smManual ? ' ovr' : '')); iq.value = sin && !r.smManual ? '' : fmt0(r.ofertaSM); iq.placeholder = 'auto'; iq.addEventListener('change', () => { if (iq.value.trim() === '') { delete pc.smOvr[r.i]; tocado(); return; } const n = numES(iq.value); if (!isFinite(n) || n < 0) { iq.value = fmt0(r.ofertaSM); return; } pc.smOvr[r.i] = n; tocado(); }); tdQ.appendChild(iq); tr.appendChild(tdQ);
+    tr.appendChild(el('td', null, sin ? '—' : fmt0(r.ofertaST)));
+    // Columnas por turno = RUTAS × PRODUCTIVIDAD (lo que reparte cada turno de verdad).
+    // Suman EXACTO al Servido. Tooltip: el desglose de la multiplicación.
+    const tdcTM = el('td', 'st grp', sin ? '—' : fmt0(r.colTMv)); tdcTM.title = sin ? '' : r.vehTM + ' rutas × ' + fmt2(r.prod) + ' = ' + fmt0(r.colTMv); tr.appendChild(tdcTM);
+    const tdcTT = el('td', 'st', sin ? '—' : fmt0(r.colTTv)); tdcTT.title = sin ? '' : r.rutasTTL + ' × ' + fmt2(r.prod) + (r.rutasTTC ? ' + ' + r.rutasTTC + ' × ' + fmt2(r.prodC) : '') + ' = ' + fmt0(r.colTTv); tr.appendChild(tdcTT);
+    const tdcTP = el('td', r.colTPv > 0 ? 'st' : '', sin ? '—' : fmt0(r.colTPv)); tdcTP.title = sin ? '' : r.vehTP + ' rutas × ' + fmt2(r.prod) + ' = ' + fmt0(r.colTPv); tr.appendChild(tdcTP);
+    // Servido = reparto real de la flota (Σ rutas × prod); Δ = servido − negocio (lo
+    // que sobra/falta frente a lo que pide negocio, nunca cae exacto por el redondeo)
+    tr.appendChild(el('td', 'grp st', sin ? '—' : fmt0(r.reparto)));
+    const dNeg = r.reparto - r.cols;
+    const tdFa = el('td', 'st', sin ? '—' : (dNeg === 0 ? '·' : (dNeg > 0 ? '+' : '') + fmt0(dNeg))); if (!sin && dNeg < 0) tdFa.style.color = 'var(--bad)'; else if (!sin && dNeg > 0) tdFa.style.color = 'var(--dim)'; tdFa.title = sin ? '' : (dNeg >= 0 ? 'reparte ' + fmt0(dNeg) + ' más que lo que pide negocio (holgura)' : 'reparte ' + fmt0(-dNeg) + ' menos que negocio'); tr.appendChild(tdFa);
+    const repCob = r.cols > 0 ? r.reparto / r.cols * 100 : 100;
+    const tdPc = el('td'); if (!sin) { const ok = repCob >= 99.95, pill = el('span', 'pill ' + (ok ? 'ok' : repCob >= 95 ? 'warn' : 'no'), ok ? '100%' : repCob.toFixed(1) + '%'); pill.title = 'reparto ' + fmt0(r.reparto) + ' / negocio ' + fmt0(r.cols); tdPc.appendChild(pill); } else tdPc.textContent = '—'; tr.appendChild(tdPc);
+    // rutas
+    tr.appendChild(el('td', 'grp', sin ? '—' : fmt0(r.vehTM)));
+    const tdL = el('td', null, sin ? '—' : fmt0(r.rutasTTL)); tdL.style.color = CT.ttl; tdL.title = sin ? '' : fmt0(r.rutasTTL) + ' de ' + fmt0(r.largasTT) + ' calles largas'; tr.appendChild(tdL);
+    const tdTc = el('td', null, sin ? '—' : (r.rutasTTC || '·')); if (r.rutasTTC > 0) tdTc.style.color = CT.ttc; tdTc.title = sin ? '' : fmt0(r.rutasTTC) + ' de ' + fmt0(r.cortasTT) + ' calles cortas (prod ' + (Math.round(r.prodC * 100) / 100) + ')'; tr.appendChild(tdTc);
+    const tdTp = el('td', null, sin ? '—' : fmt0(r.vehTP)); if (r.vehTP > 0) tdTp.style.color = CT.tp; tr.appendChild(tdTp);
+    tr.appendChild(el('td', 'st', sin ? '—' : fmt0(r.veh)));
+    // limita
+    let lim = '—';
+    if (!sin && !r.cubierto) lim = { tope: 'tope de calles', tarde: 'faltan calles tarde', largas: 'faltan largas', cortas: 'faltan cortas', TP: 'faltan puente' }[r.cuelloBotella] || 'sin capacidad';
+    else if (!sin) lim = 'ok';
+    const tdLim = el('td', 'grp l', lim); tdLim.style.color = (!sin && !r.cubierto) ? 'var(--bad)' : 'var(--faint)'; if (r.limitaDetalle) tdLim.title = r.limitaDetalle; tr.appendChild(tdLim);
+    frag.appendChild(tr);
+  }
+  tb.appendChild(frag); tbl.appendChild(tb);
+  return tbl;
+}
+
+/* ---------- VISTA: Mensual (POM + gráficos) ---------- */
+function viewMensual(v) {
+  const pc = plan().porCentro[activeCentro];
+  const res = resumenMes(activeCentro);
+  const { rows } = calcColmena(activeCentro);
+
+  // KPIs
+  const kp = el('div', 'kpis');
+  const pomMax = Math.max(...res.map(r => r.pom.valor));
+  const capMin = Math.min(...res.filter(r => r.pom.valor > 0).map(r => r.capMax));
+  const op = rows.filter(r => r.cols > 0);
+  const pct = op.length ? op.reduce((a, r) => a + r.cobPct, 0) / op.length : 100;
+  kp.append(
+    kpi('POM máximo', fmt0(pomMax), 'columnas/día', 'var(--accent)'),
+    kpi('Cobertura media', pct.toFixed(1) + '%', op.length + ' días op.', covColor(pct)),
+    kpi('Capacidad mín.', fmt0(capMin), 'mes más ajustado'),
+    kpi('Prod. media año', fmt2(pc.prod.reduce((a, b) => a + b, 0) / pc.prod.length), 'columnas/ruta larga'),
+  );
+  v.appendChild(kp);
+
+  // POM editable + alertas
+  const cPom = card('POM por mes', 'máximo de columnas del mes · clic para forzar', 'columnas/día', 'amber');
+  cPom._b.appendChild(mgrid(res.map(r => ({ valor: r.pom.valor, ovr: r.pom.forzado, sub: r.pom.forzado ? 'auto ' + fmt0(r.pom.auto) : 'auto' })), {
+    allowEmpty: true, onchange: (m, n) => { if (n == null) delete pc.pomOvr[m]; else pc.pomOvr[m] = n; tocado(); },
+  }));
+  v.appendChild(cPom);
+
+  // gráfico POM vs capacidad
+  const cg = card('POM y capacidad por mes', 'columnas/día');
+  cg._b.appendChild(legend([{ c: CT.tm, t: 'POM' }, { line: 1, t: 'capacidad máxima' }, { c: CT.bad, t: 'POM > capacidad' }]));
+  const irMes = (i, d) => { seccion = 'dia'; _diaMes = i + 1; renderSeg(); renderView(); };
+  cg._b.appendChild(stacked(res.map((r, mi) => ({ x: MESES[mi], cap: Math.round(r.capMax), alert: r.pom.valor > r.capMax, vals: { pom: r.pom.valor }, tip: '<b>' + MESES_L[mi] + '</b><br>POM ' + fmt0(r.pom.valor) + ' · cap ' + fmt0(r.capMax) + '<br><span style="color:var(--faint)">clic → ver el mes</span>' })), [{ key: 'pom', color: CT.tm }], { h: 200, onClick: irMes }));
+  v.appendChild(cg);
+
+  // gráfico columnas sin servir por mes (el déficit real; la cobertura % apenas se mueve del 100%)
+  const cc = card('Columnas sin servir por mes', 'suma del déficit diario · 0 = cobertura completa');
+  const defd = MESES.map((mm, mi) => { const rm = rows.filter(r => r.m === mi && r.cols > 0); const fa = Math.round(rm.reduce((a, r) => a + r.sinServir, 0)); const nk = rm.filter(r => !r.cubierto).length; return { x: mm, cap: 0, alert: fa > 0, vals: { f: fa }, tip: '<b>' + MESES_L[mi] + '</b><br>' + (fa ? fmt0(fa) + ' columnas sin servir · ' + nk + ' días no cubiertos' : 'cobertura completa') + '<br><span style="color:var(--faint)">clic → ver el mes</span>' }; });
+  const totDef = defd.reduce((a, d) => a + d.vals.f, 0);
+  if (totDef > 0) cc._b.appendChild(stacked(defd, [{ key: 'f', color: CT.bad }], { h: 170, onClick: irMes }));
+  else cc._b.appendChild(el('div', 'note', '✓ Cobertura completa todo el año: 0 columnas sin servir.'));
+  v.appendChild(cc);
+
+  // tabla desglose
+  const ct = card('Desglose del POM por turno', 'con la productividad media del mes');
+  ct._b.style.padding = '0';
+  const tw = el('div', 'twrap');
+  const tbl = el('table'); const th = el('thead'); const trh = el('tr'); trh.appendChild(el('th', 'l', 'Métrica')); MESES.forEach(mm => trh.appendChild(el('th', null, mm))); th.appendChild(trh); tbl.appendChild(th);
+  const tbody = el('tbody');
+  const filas = [['POM', r => fmt0(r.pom.valor)], ['Capacidad máx', r => fmt0(r.capMax)], ['Prod. media', r => fmt2(r.prodMedia)], ['POM SM', r => fmt0(r.pomSM)], ['POM ST', r => fmt0(r.pomST)], ['Veh TM', r => fmt0(r.vehTM)], ['Veh TT', r => fmt0(r.vehTT)], ['Veh TP', r => fmt0(r.vehTP)], ['Vehículos POM', r => fmt0(r.veh)]];
+  for (const [lbl, fn] of filas) { const tr = el('tr'); tr.appendChild(el('td', 'l', lbl)); res.forEach(r => tr.appendChild(el('td', r.pom.valor > r.capMax ? '' : 'st', fn(r)))); tbody.appendChild(tr); }
+  tbl.appendChild(tbody); tw.appendChild(tbl); ct._b.appendChild(tw);
+  v.appendChild(ct);
+}
+
+/* ---------- VISTA: Parámetros ---------- */
+function viewParams(v) {
+  const p = plan(), pc = p.porCentro[activeCentro];
+  if (!pc.largasTT) pc.largasTT = Array(12).fill(0);
+  if (!pc.cortasTT) pc.cortasTT = Array(12).fill(0);
+  const dias = diasDelAño(p.año);
+  const res = resumenMes(activeCentro);
+
+  // Calles por turno
+  const defs = [['callesTM', 'Calles TM (mañana)', null], ['largasTT', 'Máximo TT largas', 'green'], ['cortasTT', 'Máximo TT cortas', 'amber'], ['callesTP', 'Máximo TP (puente)', null]];
+  for (const [key, titulo, tg] of defs) {
+    const c = card(titulo, key === 'largasTT' ? 'rutas de 8 h (prod normal)' : key === 'cortasTT' ? 'rutas cortas (prod × 6,5/7,5)' : key === 'callesTP' ? 'el motor aplica mín(esto, calles TM ÷ 2)' : 'nº de calles físicas', tg ? '≤' : null, tg);
+    c._b.appendChild(mgrid(pc[key].map(x => ({ valor: x })), { onchange: (m, n) => { pc[key][m] = n; tocado(); } }));
+    if (key === 'cortasTT') { const nt = el('div', 'note'); nt.style.marginTop = '10px'; nt.innerHTML = 'Máximo TT = <b>largas + cortas</b> (la L de la Carpeta Verde). bcn1: 70 largas + 24 cortas.'; c._b.appendChild(nt); }
+    v.appendChild(c);
+  }
+
+  // %Oferta TM (columna O de la Carpeta Verde)
+  const cO = card('%Oferta TM', 'parte del POM que dimensiona el parque de la mañana', 'Carpeta Verde', 'green');
+  const selO = el('select'); for (const [val, t] of [['negocio', 'Manda negocio — el % real de cada día según la query (la grid es respaldo)'], ['fijo', 'Fijo por mes — siempre la grid (como el Excel: 0,5 · 0,7 PAN · 0,52 mad3 sep-dic)']]) { const o = el('option', null, t); o.value = val; selO.appendChild(o); } selO.value = pc.pctTMmodo || 'negocio'; selO.style.cssText = 'width:100%;margin-bottom:12px'; selO.addEventListener('change', () => { pc.pctTMmodo = selO.value; tocado(); });
+  cO._b.appendChild(selO);
+  cO._b.appendChild(mgrid((pc.pctTM || pctTMDef(activeCentro)).map(x => ({ valor: x })), { onchange: (m, n) => { if (n > 0 && n <= 1) { pc.pctTM[m] = n; tocado(); } } }));
+  cO._b.appendChild(el('div', 'note', 'Con «manda negocio», el parque de mañana/tarde se reparte cada día como pide la query (Of.SM ÷ oferta) y desaparecen los déficits artificiales de parque; la grid solo se usa en días sin dato de mañana.'));
+  v.appendChild(cO);
+
+  // Productividad
+  const cP = card('Productividad por mes (rutas 8 h)', 'media de los días · editar fija el mes', 'columnas/ruta', 'green');
+  cP._b.appendChild(mgrid(res.map(r => ({ valor: Math.round(r.prodMedia * 100) / 100 })), { onchange: (m, n) => { dias.forEach((d, i) => { if (mesDe(d) === m) pc.prod[i] = n; }); tocado(); } }));
+  cP._b.appendChild(el('div', 'note', 'Media de TODOS los tipos de ruta de 8 h (mañana, puente y tarde larga). «Importar CSV» la sincroniza día a día desde PMR. Las rutas cortas rinden <b>prod × 6,5/7,5</b> (Carpeta Verde): con 15,8 → 13,69.'));
+  v.appendChild(cP);
+
+  // TP + Oferta SM (dos columnas)
+  const g = el('div', 'grid2');
+  const cTP = card('Turno puente (TP)', 'criterio de columnas');
+  const selTP = el('select'); for (const [val, t] of [['dinamico', 'Dinámico — usar todos los vehículos'], ['fijo', 'Puente fijo — POM TP del mes']]) { const o = el('option', null, t); o.value = val; selTP.appendChild(o); } selTP.value = pc.modoTP; selTP.style.width = '100%'; selTP.addEventListener('change', () => { pc.modoTP = selTP.value; tocado(); });
+  cTP._b.appendChild(selTP);
+  const rtp = el('div', 'row'); rtp.style.marginTop = '10px'; const ftp = el('div', 'field'); ftp.style.maxWidth = '120px'; ftp.appendChild(el('label', null, '% máx TP')); const itp = el('input'); itp.type = 'number'; itp.step = '0.05'; itp.value = pc.ratioTP; itp.addEventListener('change', () => { const n = parseFloat(itp.value); pc.ratioTP = (n > 0 && n <= 1) ? n : 0.4; itp.value = pc.ratioTP; tocado(); }); ftp.appendChild(itp); rtp.appendChild(ftp);
+  rtp.appendChild(el('div', 'note', 'El puente del día se capa a su parque del POM y al % máx sobre la tarde (Carpeta Verde).')); cTP._b.appendChild(rtp);
+  g.appendChild(cTP);
+
+  const cSM = card('Oferta SM', 'reparto mañana/tarde');
+  const selSM = el('select'); for (const [val, t] of [['query', 'Mañana de la query (manda negocio)'], ['techo', 'Techo del plan (POM SM)']]) { const o = el('option', null, t); o.value = val; selSM.appendChild(o); } selSM.value = pc.modoSM || 'query'; selSM.style.width = '100%'; selSM.addEventListener('change', () => { pc.modoSM = selSM.value; tocado(); }); cSM._b.appendChild(selSM);
+  const conSM = (pc.colsSM || []).filter(x => x > 0).length; cSM._b.appendChild(h('<div class="note" style="margin-top:10px">Mañana de la query en ' + fmt0(conSM) + ' días. El override por día (Vista diaria) manda sobre todo.</div>'));
+  g.appendChild(cSM);
+  v.appendChild(g);
+
+  // Parrilla (solo dibujo)
+  const cPar = card('Parrilla de carga por turno', 'solo dibuja el gantt de Oleadas · no limita rutas');
+  for (const [key, nombre] of TURNOS) {
+    const t = pc.parrilla[key] || (pc.parrilla[key] = clone(HORARIOS_DEF._def[key]));
+    const blk = el('div'); blk.style.cssText = 'border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px';
+    blk.appendChild(h('<div style="font-weight:700;font-size:12px;color:var(--dim);margin-bottom:10px">' + nombre + '</div>'));
+    const rr = el('div', 'row');
+    const campo = (lbl, val, w, cb) => { const f = el('div', 'field'); f.style.maxWidth = w; f.appendChild(el('label', null, lbl)); const inp = el('input'); inp.type = 'text'; inp.value = val; inp.addEventListener('change', () => cb(inp)); f.appendChild(inp); return f; };
+    rr.append(
+      campo('Hora 1ª carga', fmtHora(t.ini), '90px', inp => { const x = parseHora(inp.value); if (x == null) { inp.value = fmtHora(t.ini); return; } t.ini = x; tocado(); }),
+      campo('Min. cargas', t.carga, '80px', inp => { const n = numES(inp.value); if (!isFinite(n) || n < 1) { inp.value = t.carga; return; } t.carga = n; tocado(); }),
+      campo('Camiones', t.muelles, '80px', inp => { const n = numES(inp.value); if (!isFinite(n) || n < 1) { inp.value = t.muelles; return; } t.muelles = n; tocado(); }),
+    );
+    blk.appendChild(rr);
+    cPar._b.appendChild(blk);
+  }
+  // duración por TIPO DE RUTA (larga/corta), común a todos los turnos
+  const blkD = el('div'); blkD.style.cssText = 'border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px';
+  blkD.appendChild(h('<div style="font-weight:700;font-size:12px;color:var(--dim);margin-bottom:10px">Duración por tipo de ruta</div>'));
+  const rrD = el('div', 'row');
+  const campoD = (lbl, val, cb) => { const f = el('div', 'field'); f.style.maxWidth = '130px'; f.appendChild(el('label', null, lbl)); const inp = el('input'); inp.type = 'text'; inp.value = val; inp.addEventListener('change', () => cb(inp)); f.appendChild(inp); return f; };
+  rrD.append(
+    campoD('Ruta larga (h)', (pc.durLarga || 480) / 60, inp => { const n = numES(inp.value); if (!isFinite(n) || n <= 0 || n > 16) { inp.value = (pc.durLarga || 480) / 60; return; } pc.durLarga = Math.round(n * 60); tocado(); }),
+    campoD('Ruta corta (h)', (pc.durCorta || 420) / 60, inp => { const n = numES(inp.value); if (!isFinite(n) || n <= 0 || n > 16) { inp.value = (pc.durCorta || 420) / 60; return; } pc.durCorta = Math.round(n * 60); tocado(); }),
+  );
+  blkD.appendChild(rrD);
+  blkD.appendChild(el('div', 'note', 'Mañana, puente y tarde larga dibujan rutas largas; las cortas usan su propia duración.'));
+  cPar._b.appendChild(blkD);
+  if (activeCentro === 'pan2' || activeCentro === 'pan3') cPar._b.appendChild(h('<div class="note" style="color:var(--warn)">⚠ Parrilla provisional: PAN2/PAN3 no venían en las imágenes.</div>'));
+  v.appendChild(cPar);
+}
+
+/* ---------- VISTA: Oleadas (gantt) ---------- */
+function oleadasDia(r, pa, pc) {
+  const olas = []; const mk = (tipo, idx, t0, dur, rutas) => olas.push({ tipo, nombre: tipo + '.' + idx, ini: t0, fin: t0 + dur, rutas });
+  const { tm, tp, tt } = pa;
+  // duración por TIPO DE RUTA: larga (mañana, puente, tarde larga) y corta
+  const dL = (pc && pc.durLarga) || JORNADA.durLarga, dC = (pc && pc.durCorta) || JORNADA.durCorta;
+  const dTM = dL, dTP = dL, dTT = dL, dTTC = dC;
+  let rest = r.vehTM, k = 0; while (rest > 0) { const n = Math.min(tm.muelles, rest); mk('TM', k + 1, tm.ini + k * tm.carga, dTM, n); rest -= n; k++; }
+  rest = r.rutasTTL; k = 0; while (rest > 0) { const n = Math.min(tt.muelles, rest); mk('TT', k + 1, tt.ini + k * tt.carga, dTT, n); rest -= n; k++; }
+  const nL = k; let kc = 0; rest = r.rutasTTC; while (rest > 0) { const n = Math.min(tt.muelles, rest); mk('TTC', kc + 1, tt.ini + (nL + kc) * tt.carga, dTTC, n); rest -= n; kc++; }
+  rest = r.vehTP; let kp = 0; while (rest > 0) { const n = Math.min(tp.muelles, rest); mk('TP', kp + 1, tp.ini + kp * tp.carga, dTP, n); rest -= n; kp++; }
+  return olas;
+}
+function viewOleadas(v) {
+  const p = plan(), pc = p.porCentro[activeCentro], pa = pc.parrilla || HORARIOS_DEF._def;
+  const { rows } = calcColmena(activeCentro);
+  const op = rows.filter(r => r.cols > 0);
+  const scroll = el('div', 'vscroll'); scroll.style.cssText = 'flex:1;overflow:auto;padding:18px 20px';
+  if (!op.length) { scroll.appendChild(el('div', 'note', 'Sin días operativos: carga columnas primero.')); v.appendChild(scroll); return; }
+  if (!_olFecha || !rows.some(r => r.fecha === _olFecha)) _olFecha = op.reduce((a, b) => b.cols > a.cols ? b : a).fecha;
+  const r = rows.find(x => x.fecha === _olFecha);
+
+  const bar = el('div', 'row'); bar.style.marginBottom = '14px';
+  const añoIso = iso => parseInt(iso.slice(0, 4), 10); const irA = iso => { if (añoIso(iso) === p.año) { _olFecha = iso; renderView(); } };
+  const bp = el('button', 'btn sm', '◀'); bp.addEventListener('click', () => irA(msToIso(isoToMs(_olFecha) - DAY)));
+  const di = el('input'); di.type = 'date'; di.value = _olFecha; di.min = p.año + '-01-01'; di.max = p.año + '-12-31'; di.addEventListener('change', () => { if (di.value) irA(di.value); });
+  const bn = el('button', 'btn sm', '▶'); bn.addEventListener('click', () => irA(msToIso(isoToMs(_olFecha) + DAY)));
+  const bk = el('button', 'btn sm', 'Ir al pico'); bk.addEventListener('click', () => { _olFecha = op.reduce((a, b) => b.cols > a.cols ? b : a).fecha; renderView(); });
+  const inf = el('div', 'note'); inf.innerHTML = '<b style="color:var(--text)">' + fechaLarga(r.fecha) + '</b> · ' + fmt0(r.cols) + ' columnas · ' + fmt0(r.veh) + ' vehículos · ' + (r.cubierto ? '<span style="color:var(--good)">100%</span>' : '<span style="color:var(--bad)">' + r.cobPct.toFixed(1) + '% · faltan ' + fmt0(r.sinServir) + '</span>');
+  bar.append(bp, di, bn, bk, inf); scroll.appendChild(bar);
+
+  const res = el('div', 'row'); res.style.marginBottom = '14px';
+  const chip = (t, c) => { const s = el('span'); s.style.cssText = 'font-family:var(--mono);font-size:11px;padding:5px 11px;border-radius:8px;border:1px solid ' + c + ';color:' + c; s.textContent = t; return s; };
+  const hTxt = min => (min / 60) % 1 === 0 ? (min / 60) + 'h' : (min / 60).toFixed(1) + 'h';
+  const dL = pc.durLarga || 480, dC = pc.durCorta || 420;
+  res.append(chip(fmt0(r.vehTM) + ' TM · ' + hTxt(dL), CT.tm), chip(fmt0(r.rutasTTL) + ' TT largas · ' + hTxt(dL), CT.ttl), chip(fmt0(r.rutasTTC) + ' TT cortas · ' + hTxt(dC), CT.ttc), chip(fmt0(r.vehTP) + ' TP · ' + hTxt(dL), CT.tp));
+  scroll.appendChild(res);
+
+  const olas = oleadasDia(r, pa, pc);
+  const T0 = 360, T1 = 1470;
+  const cg = card('Gantt de la jornada', 'oleadas de carga (06:00–00:00)');
+  const inner = el('div'); const filaH = 32, headH = 26; inner.style.cssText = 'position:relative;min-width:1040px;height:' + (headH + olas.length * filaH + 14) + 'px';
+  const head = el('div'); head.style.cssText = 'position:absolute;top:0;left:0;right:0;height:22px;background:linear-gradient(90deg,var(--ttl),#22b98a);border-radius:6px';
+  for (let hh = 360; hh <= 1440; hh += 60) { const lab = el('span', null, fmtHora(hh % 1440)); lab.style.cssText = 'position:absolute;left:' + ((hh - T0) / (T1 - T0) * 100) + '%;transform:translateX(4px);font-family:var(--mono);font-size:9.5px;font-weight:700;color:#06281a;line-height:22px'; head.appendChild(lab); }
+  inner.appendChild(head);
+  for (let hh = 360; hh <= 1440; hh += 60) { const gl = el('div'); gl.style.cssText = 'position:absolute;top:' + headH + 'px;bottom:0;left:' + ((hh - T0) / (T1 - T0) * 100) + '%;width:1px;background:var(--line)'; inner.appendChild(gl); }
+  const est = { TM: CT.tm, TT: CT.ttl, TTC: CT.ttc, TP: CT.tp };
+  olas.forEach((o, i) => {
+    const bar2 = el('div'); const L = (o.ini - T0) / (T1 - T0) * 100, wp = (o.fin - o.ini) / (T1 - T0) * 100; const col = est[o.tipo];
+    bar2.style.cssText = 'position:absolute;top:' + (headH + i * filaH) + 'px;height:' + (filaH - 6) + 'px;left:' + L + '%;width:' + wp + '%;background:' + col + '22;border:1px solid ' + col + ';border-radius:7px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;box-sizing:border-box;font-family:var(--mono)';
+    bar2.innerHTML = '<span style="font-size:10px;font-weight:700;color:var(--text)">' + o.nombre + ' · ' + fmt0(o.rutas) + '</span><span style="font-size:10px;font-weight:700;color:var(--text)">' + fmtHora(o.ini) + '–' + fmtHora(o.fin % 1440) + '</span>';
+    inner.appendChild(bar2);
+  });
+  const gw = el('div'); gw.style.overflowX = 'auto'; gw.appendChild(inner); cg._b.appendChild(gw);
+  cg._b.appendChild(h('<div class="note" style="margin-top:10px">Mañana ' + pa.tm.muelles + '/' + pa.tm.carga + '′ desde ' + fmtHora(pa.tm.ini) + ' · Puente ' + pa.tp.muelles + '/' + pa.tp.carga + '′ desde ' + fmtHora(pa.tp.ini) + ' · Tarde ' + pa.tt.muelles + '/' + pa.tt.carga + '′ desde ' + fmtHora(pa.tt.ini) + '. Las cortas se dibujan tras las largas.</div>'));
+  scroll.appendChild(cg);
+  v.appendChild(scroll);
+}
+
+/* ---------- VISTA: Comparativa (plan vs PMR) ---------- */
+let _cmpMes = 0;
+function viewCmp(v) {
+  const p = plan(), pc = p.porCentro[activeCentro];
+  const dias = diasDelAño(p.año);
+  const tiene = (pc.extVeh || []).some(x => x != null) || (pc.extProd || []).some(x => x != null);
+  if (!tiene) {
+    const box = el('div'); box.style.cssText = 'flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px';
+    const c = card('Comparativa plan vs PMR', activeCentro.toUpperCase() + ' · sin datos cargados');
+    c.style.maxWidth = '560px';
+    c._b.appendChild(h('<div class="note">Exporta los turnos de PMR (CSV con <code>Origin, Shift, Shift Type, Service Date, Planned Columns, Workers…</code>), cárgalo con «Importar CSV» y pulsa «<b>Cargar en Comparativa</b>». Cada lado va con lo suyo: el <b>plan</b> con los vehículos que calcula mi motor, <b>PMR</b> con los vehículos reales del CSV. No recalcula ni toca el plan.</div>'));
+    const b = el('button', 'btn pri sm', 'Importar CSV'); b.style.marginTop = '12px'; b.addEventListener('click', () => $('#mCsv').classList.add('on'));
+    c._b.appendChild(b);
+    box.appendChild(c); v.appendChild(box); return;
+  }
+
+  // barra de filtro por mes (meses coloreados por productividad)
+  const bar = el('div'); bar.style.cssText = 'padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0';
+  bar.appendChild(mesesChips(pc, dias, _cmpMes, v2 => { _cmpMes = v2; renderView(); }));
+  const hint = el('span', null, (p.extMeta || '') + ' · Δ = PMR − plan'); hint.style.cssText = 'margin-left:auto;font-size:11px;color:var(--faint)';
+  bar.appendChild(hint);
+  const bDel = el('button', 'btn sm', 'Vaciar');
+  bDel.addEventListener('click', () => { if (!confirm('Borra los datos de PMR cargados en la Comparativa (todas las colmenas del plan ' + p.año + '). El plan no se toca. ¿Continuar?')) return; for (const cc of p.centros) { const x = p.porCentro[cc]; x.extProd = Array(x.cols.length).fill(null); x.extProdC = Array(x.cols.length).fill(null); x.extVeh = Array(x.cols.length).fill(null); x.extCols = Array(x.cols.length).fill(null); } delete p.extMeta; tocado(); });
+  bar.appendChild(bDel);
+  v.appendChild(bar);
+
+  const scroll = el('div', 'vscroll'); scroll.style.cssText = 'flex:1;overflow:auto;padding:18px 20px';
+
+  // Cada lado con SUS vehículos: el plan los calcula mi motor; PMR los
+  // trae del CSV (Workers). No se recalcula un lado con las calles del otro.
+  const calc = calcColmena(activeCentro);
+  const pico = e => Math.max(e.tm + e.tp, e.ttl + e.ttc + e.tp);
+  const rows = dias.map((f, i) => {
+    const e = (pc.extVeh || [])[i]; if (!e) return null;
+    const cr = calc.rows[i];
+    return {
+      f, i, m: mesDe(f), ds: dsem(f),
+      prodP: pc.prod[i], prodT: pc.extProd[i],
+      vP: { tm: cr.vehTM, tp: cr.vehTP, ttl: cr.rutasTTL, ttc: cr.rutasTTC, pico: cr.veh },
+      vT: { tm: e.tm, tp: e.tp, ttl: e.ttl, ttc: e.ttc, pico: pico(e) },
+      negocio: cr.cols, colP: cr.cols > 0 ? Math.round(cr.reparto) : 0, colT: (pc.extCols || [])[i] || 0,
+    };
+  }).filter(Boolean);
+  const rowsF = rows.filter(r => _cmpMes === 0 || r.m === _cmpMes - 1);
+
+  // KPIs del periodo filtrado
+  const kp = el('div', 'kpis');
+  if (rowsF.length) {
+    const avg = f => rowsF.reduce((a, r) => a + f(r), 0) / rowsF.length;
+    const mPicoP = avg(r => r.vP.pico), mPicoT = avg(r => r.vT.pico), dPico = mPicoT - mPicoP;
+    const conProd = rowsF.filter(r => r.prodT != null);
+    const mProdP = conProd.length ? conProd.reduce((a, r) => a + r.prodP, 0) / conProd.length : 0;
+    const mProdT = conProd.length ? conProd.reduce((a, r) => a + r.prodT, 0) / conProd.length : 0;
+    const diasMas = rowsF.filter(r => r.vT.pico > r.vP.pico).length;
+    const sNeg = rowsF.reduce((a, r) => a + r.negocio, 0), sP = rowsF.reduce((a, r) => a + r.colP, 0), sT = rowsF.reduce((a, r) => a + r.colT, 0);
+    kp.append(
+      kpi('Vehículos/día · PMR vs plan', mPicoT.toFixed(0) + ' / ' + mPicoP.toFixed(0), rowsF.length + ' días comparados'),
+      kpi('Δ vehículos/día', (dPico >= 0 ? '+' : '') + dPico.toFixed(1), dPico >= 0.5 ? 'PMR usa más (plan corto)' : dPico <= -0.5 ? 'PMR usa menos' : 'alineados', dPico >= 0.5 ? 'var(--bad)' : dPico <= -0.5 ? 'var(--good)' : 'var(--good)'),
+      kpi('Días con más veh. en PMR', fmt0(diasMas), 'de ' + rowsF.length, diasMas ? 'var(--warn)' : 'var(--good)'),
+      kpi('Prod 8h · PMR vs plan', mProdT.toFixed(2) + ' / ' + mProdP.toFixed(2), 'columnas/ruta'),
+      kpi('Columnas · negocio / plan / PMR', fmt0(sNeg) + ' / ' + fmt0(sP) + ' / ' + fmt0(sT), 'en el periodo'),
+    );
+  } else kp.append(kpi('Sin datos', '—', 'en el periodo filtrado'));
+  scroll.appendChild(kp);
+
+  // gráfico: Δ vehículos (pico) PMR − plan
+  const cg = card('Diferencia de vehículos', (_cmpMes === 0 ? 'media por mes' : 'día a día · ' + MESES_L[_cmpMes - 1]) + ' · pico de la jornada');
+  cg._b.appendChild(legend([{ c: CT.bad, t: '+ PMR usa más (plan corto)' }, { c: CT.ttl, t: '− PMR usa menos' }, { c: '#4b5563', t: 'igual' }]));
+  let cd;
+  if (_cmpMes === 0) {
+    cd = MESES.map((mm, mi) => {
+      const rm = rows.filter(r => r.m === mi);
+      if (!rm.length) return { x: mm, v: null, tip: '<b>' + MESES_L[mi] + '</b><br>sin datos' };
+      const mp = rm.reduce((a, r) => a + r.vP.pico, 0) / rm.length, mt = rm.reduce((a, r) => a + r.vT.pico, 0) / rm.length;
+      return { x: mm, mes: mi, v: mt - mp, tip: '<b>' + MESES_L[mi] + '</b><br>PMR ' + mt.toFixed(1) + ' vs plan ' + mp.toFixed(1) + ' veh<br>' + rm.length + ' días<br><span style="color:var(--faint)">clic → ver el mes</span>' };
+    });
+  } else {
+    cd = rowsF.map(r => ({ x: r.f.slice(8, 10), fecha: r.f, v: r.vT.pico - r.vP.pico, tip: '<b>' + fechaLarga(r.f) + '</b><br>plan ' + r.vP.pico + ' vs PMR ' + r.vT.pico + ' veh<br><span style="color:var(--faint)">clic → ir a la fila</span>' }));
+  }
+  if (cd.length) cg._b.appendChild(divBars(cd, { h: 190, thr: 0.5, cPos: CT.bad, cNeg: CT.ttl, onClick: (i, d) => { if (_cmpMes === 0) { _cmpMes = d.mes + 1; renderView(); } else if (d.fecha) scrollFila('fc-' + d.fecha); } }));
+  else cg._b.appendChild(el('div', 'note', 'Sin datos en el periodo.'));
+  scroll.appendChild(cg);
+
+  // tabla día a día
+  const ct = card('Detalle diario', rowsF.length + ' días · vehículos por turno M·P·T (mañana·puente·tarde) — cada lado con los suyos');
+  ct._b.style.padding = '0';
+  const tw = el('div');
+  const tbl = el('table'); const th = el('thead'); const trh = el('tr');
+  [['Fecha', 'l'], ['Sem', 'l'], ['Prod plan', ''], ['Prod PMR', ''], ['Veh plan', 'grp'], ['Veh PMR', ''], ['Δ veh · M·P·T', ''], ['Negocio', 'grp'], ['Col plan', ''], ['Col PMR', '']].forEach(([t, cls], i) => { const thx = el('th', cls, t); if (i === 0) thx.style.cssText += ';position:sticky;left:0;z-index:6;background:var(--surface2)'; trh.appendChild(thx); });
+  th.appendChild(trh); tbl.appendChild(th);
+  const tb = el('tbody'); const frag = document.createDocumentFragment();
+  const vehStr = o => o.tm + '·' + o.tp + '·' + o.ttl + (o.ttc ? '·' + o.ttc : '');
+  const tdProd = (a, b) => { const td = el('td', 'st'); td.textContent = a != null ? fmt2(a) : '·'; if (a != null && b != null && Math.abs(a - b) >= 0.1) td.style.color = a > b ? 'var(--warn)' : 'var(--bad)'; return td; };
+  // Δ vehículos POR TURNO (PMR − plan): + rojo (PMR usa más) / − verde (PMR usa menos)
+  const tdDeltaTurno = (vP, vT) => {
+    const td = el('td'); const parts = [vT.tm - vP.tm, vT.tp - vP.tp, vT.ttl - vP.ttl];
+    if (vP.ttc || vT.ttc) parts.push(vT.ttc - vP.ttc);
+    parts.forEach((d, idx) => {
+      if (idx) td.appendChild(document.createTextNode('·'));
+      const s = el('span', null, d === 0 ? '0' : (d > 0 ? '+' : '') + d);
+      s.style.color = d > 0 ? 'var(--bad)' : d < 0 ? 'var(--good)' : 'var(--faint)'; if (d !== 0) s.style.fontWeight = '700';
+      td.appendChild(s);
+    });
+    return td;
+  };
+  let cur = -1;
+  for (const r of rowsF) {
+    if (r.m !== cur) {
+      cur = r.m;
+      const rm = rows.filter(x => x.m === r.m);
+      const mp = rm.reduce((a, x) => a + x.vP.pico, 0) / rm.length, mt = rm.reduce((a, x) => a + x.vT.pico, 0) / rm.length;
+      const tr = el('tr', 'msep'); const td = el('td'); td.colSpan = 10;
+      td.textContent = MESES_L[r.m] + '  ·  ' + rm.length + ' días · veh/día plan ' + mp.toFixed(1) + ' vs PMR ' + mt.toFixed(1) + ' (' + (mt - mp >= 0 ? '+' : '') + (mt - mp).toFixed(1) + ')';
+      tr.appendChild(td); frag.appendChild(tr);
+    }
+    const wknd = r.ds >= 5, dPico = r.vT.pico - r.vP.pico;
+    const tr = el('tr', (Math.abs(dPico) >= 1 ? 'rowbad ' : '') + (wknd ? 'weekend' : '')); tr.id = 'fc-' + r.f;
+    const tdF = el('td', 'l'); tdF.style.cssText = 'position:sticky;left:0;background:var(--surface);' + (wknd ? 'color:var(--faint)' : ''); tdF.textContent = r.f.slice(8, 10) + '/' + r.f.slice(5, 7) + ' ' + DSEM[r.ds]; tr.appendChild(tdF);
+    tr.appendChild(el('td', 'l', 'S' + semanaISO(r.f)));
+    tr.appendChild(tdProd(r.prodP, r.prodT));
+    tr.appendChild(tdProd(r.prodT, r.prodP));
+    const tdVp = el('td', 'grp st', vehStr(r.vP)); tdVp.title = 'pico ' + r.vP.pico + ' vehículos'; tr.appendChild(tdVp);
+    const tdVt = el('td', 'st', vehStr(r.vT)); tdVt.title = 'pico ' + r.vT.pico + ' vehículos'; tr.appendChild(tdVt);
+    tr.appendChild(tdDeltaTurno(r.vP, r.vT));
+    tr.appendChild(el('td', 'grp st', fmt0(r.negocio)));
+    tr.appendChild(el('td', 'st', fmt0(r.colP)));
+    const tdSe = el('td', 'st', fmt0(r.colT)); if (Math.abs(r.colT - r.colP) >= 2) tdSe.style.color = r.colT < r.colP ? 'var(--bad)' : 'var(--warn)'; tr.appendChild(tdSe);
+    frag.appendChild(tr);
+  }
+  tb.appendChild(frag); tbl.appendChild(tb); tw.appendChild(tbl); ct._b.appendChild(tw);
+  scroll.appendChild(ct);
+  v.appendChild(scroll);
+}
+
+/* ---------- VISTA: Guía ---------- */
+function viewGuia(v) {
+  v.appendChild(h('<div class="guide">\
+<h2>Cómo funciona</h2>\
+<p>Planifica la operativa de reparto por colmena, todo en <b>columnas</b>. El flujo: columnas de la query → POM del mes → reparto por turnos (TM mañana, TT tarde largas/cortas, TP puente) → cobertura.</p>\
+<div class="fx">CARPETA VERDE · fase 1 — parque de rutas desde el POM (todo techo/ROUNDUP):\n  Rutas TM = techo(POM × %OfertaTM ÷ prod) ≤ calles TM\n  Largas = techo del resto ≤ máx largas · Cortas = resto ÷ (prod×6,5/7,5) ≤ máx cortas\n  Rutas TP = resto ≤ mín(calles TP, calles TM÷2)\n  %OfertaTM: MANDA NEGOCIO — el % real del día (Of.SM ÷ oferta de la query);\n  la grid por mes es el respaldo (o siempre, en modo fijo)\nfase 2 — el día (oferta real), cascada capada al PARQUE:\n  TP día = mín(parque SM, %TP·tarde, parque TP) → Mañana = (Of.SM − TP/2)/prod ≤ parque TM\n  → Largas → Cortas (el resto en cascada, cada una ≤ su parque)\nServido = Σ rutas × prod (cortas × 6,5/7,5) · Oferta_OK si cubre la oferta</div>\
+<h2>Qué editas (Parámetros)</h2>\
+<li>Calles TM, TT <b>largas</b>, TT <b>cortas</b> y TP por mes — las totales de tarde son largas + cortas.</li>\
+<li>Productividad por mes de las rutas de 8 h y productividad de las cortas <b>por mes</b> (ref. 13) — o sincronízalas con «Importar CSV» desde PMR.</li>\
+<li>POM mensual (forzable), criterio TP, criterio Oferta SM y parrilla de carga con la <b>duración por tipo de ruta</b> (larga 8 h / corta 7 h, editables; dibujan el gantt de Oleadas).</li>\
+<h2>Negocio vs Servido</h2>\
+<p>En <b>Día a día</b>, «<b>Editar rango</b>» aplica un valor (productividad, negocio, POM u Oferta SM) a un rango de fechas de golpe — para no ir día a día. Se ven las dos cosas: <b>Negocio</b> = las columnas que pide negocio (editable), y <b>Servido</b> = lo que la flota reparte de verdad = Σ (rutas × productividad). Las columnas por turno (Col TM/TT/TP) son <b>rutas × prod</b> y suman al Servido. Casi nunca cae exacto sobre Negocio: si negocio pide 100 y la productividad es 16,9, hacen falta 6 rutas (100÷16,9=5,9→6) y 6×16,9≈101 → se reparte 101, no 100. Se envían las rutas <b>necesarias para cubrir</b> cada turno mientras haya calles (solo se ahorra el camión extra si fuera a &lt;10% de carga), así que la <b>Δ neg</b> suele ser holgura (+); solo sale − cuando las calles se agotan de verdad. El <b>POM y la Oferta SM son editables por día</b> (vacío = el del mes / auto). Cuando las largas y las cortas están a tope, el resto de la tarde <b>se deriva al puente</b>. Un día en <b>rojo</b> no cubre por <b>capacidad</b> (calles): en «Limita» ves qué agota sus calles («tope de calles» si es todo). El anillo y el banner resumen la cobertura por capacidad del periodo.</p>\
+<h2>Datos</h2>\
+<p>Productividades del Excel 2026; columnas de la query 08/07/2026; calles derivadas del Excel. «+ Año» crea 2027 copiando parámetros. «Importar CSV» detecta solo qué le pasas: el de <code>daily_business_offer</code> (columnas por día) o el export de turnos de PMR (Origin/Shift/...). Con este último puedes <b>Cargar en Comparativa</b> —se guarda con el plan y la pestaña <b>Comparativa</b> muestra el día a día plan vs PMR (vehículos por turno de cada lado, Δ vehículos y filtro por mes) sin tocar nada— o <b>Aplicar</b> para sincronizar el plan: productividades por día (la <b>configurada</b> del CSV —campo Productivity— ponderada por trabajadores de mañana+puente+tarde larga, así coincide con la query, p.ej. 16,75), cortas por mes, y <b>calles por turno/mes</b> — se amplían al máximo de vehículos que PMR usó en el mes cuando superan las del plan (nunca se reducen solas). Todo se guarda en el navegador; usa Exportar para copia. La <b>nube (Supabase)</b> se configura en el propio código (constante <code>NUBE_CONFIG</code> al inicio del script: URL + clave anon): con eso, guarda automáticamente al editar (verás el ☁ iluminarse), siembra el documento la primera vez y, al abrir, si la nube va por delante te ofrece cargarla — ideal con el HTML servido desde GitHub Pages.</p>\
+</div>'));
+}
+
+/* ---------- CSV / planes / eventos ---------- */
+function splitCSVLine(line, sep) { const out = []; let cur = '', q = false; for (let i = 0; i < line.length; i++) { const ch = line[i]; if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; } else if (ch === '"') q = true; else if (ch === sep) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; }
+function fechaCSV(s) { s = s.trim().replace(/^"|"$/g, ''); let iso = null; let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m) iso = m[1] + '-' + m[2] + '-' + m[3]; else { m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s); if (m) iso = m[3] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0'); } if (!iso) return null; const ms = isoToMs(iso); return (isFinite(ms) && msToIso(ms) === iso) ? iso : null; }
+function parseCSV(text, usarAdj) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== ''); if (lines.length < 2) throw new Error('CSV vacío');
+  const sep = [',', ';', '\t'].map(s => [s, lines[0].split(s).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const hdr = splitCSVLine(lines[0], sep).map(x => x.trim().toLowerCase());
+  const iC = hdr.indexOf('center'), iF = hdr.indexOf('service_date'), iT = hdr.indexOf(usarAdj ? 'adjusted_total_columns' : 'total_columns'), iM = hdr.indexOf(usarAdj ? 'adjusted_morning_columns' : 'morning_columns');
+  if (iC < 0 || iF < 0 || iT < 0) throw new Error('Faltan columnas center / service_date / total_columns');
+  const datos = {}; let filas = 0, errores = 0, fmin = null, fmax = null;
+  for (let i = 1; i < lines.length; i++) { const pr = splitCSVLine(lines[i], sep); const c = (pr[iC] || '').trim().replace(/^"|"$/g, '').toLowerCase(); const f = fechaCSV(pr[iF] || ''); if (!/^[a-z0-9]{2,8}$/.test(c) || !f) { errores++; continue; } const tot = numES(pr[iT]), man = iM >= 0 ? numES(pr[iM]) : NaN; (datos[c] = datos[c] || {})[f] = [isFinite(tot) ? tot : 0, isFinite(man) ? man : null]; filas++; if (!fmin || f < fmin) fmin = f; if (!fmax || f > fmax) fmax = f; }
+  return { datos, centros: Object.keys(datos).sort(), filas, errores, fmin, fmax };
+}
+// CSV de productividades por turno (export de PMR):
+// Origin, Shift, Shift Type, Service Date, Columns, Planned Columns, Productivity, Workers, ...
+// Por día y colmena se usa la productividad CONFIGURADA (campo Productivity), ponderada
+// por trabajadores, para las rutas de 8 h (morning+bridge+afternoon long) — así coincide
+// con la query (p.ej. 16,75) y no con el 16,76 que sale de dividir las columnas
+// planificadas (redondeadas) entre los trabajadores. Si no viene Productivity, se usa
+// Σ planned / Σ workers. Las afternoon short van aparte (cortas).
+function parseProdCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== ''); if (lines.length < 2) throw new Error('CSV vacío');
+  const sep = [',', ';', '\t'].map(s => [s, lines[0].split(s).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const hdr = splitCSVLine(lines[0], sep).map(x => x.trim().toLowerCase());
+  const iO = hdr.indexOf('origin'), iS = hdr.indexOf('shift'), iT = hdr.indexOf('shift type'), iF = hdr.indexOf('service date'), iP = hdr.indexOf('planned columns'), iW = hdr.indexOf('workers'), iPr = hdr.indexOf('productivity');
+  if (iO < 0 || iS < 0 || iT < 0 || iF < 0 || iP < 0 || iW < 0) throw new Error('Faltan columnas Origin / Shift / Shift Type / Service Date / Planned Columns / Workers');
+  const datos = {}; let filas = 0, errores = 0, fmin = null, fmax = null;
+  for (let i = 1; i < lines.length; i++) {
+    const pr = splitCSVLine(lines[i], sep);
+    const c = (pr[iO] || '').trim().replace(/^"|"$/g, '').toLowerCase(); const f = fechaCSV(pr[iF] || '');
+    const sh = (pr[iS] || '').trim().toLowerCase(), ty = (pr[iT] || '').trim().toLowerCase();
+    const cols = numES(pr[iP]), wk = numES(pr[iW]);
+    const prodCfg = iPr >= 0 ? numES(pr[iPr]) : NaN;
+    if (!/^[a-z0-9]{2,8}$/.test(c) || !f || !isFinite(cols) || !isFinite(wk)) { errores++; continue; }
+    const prW = (isFinite(prodCfg) ? prodCfg : (wk > 0 ? cols / wk : 0)) * wk;   // prod configurada × trabajadores
+    const d = ((datos[c] = datos[c] || {})[f] = datos[c][f] || { c8: 0, w8: 0, pw8: 0, cc: 0, wc: 0, pwc: 0, wTM: 0, wTP: 0, wTTL: 0 });
+    if (ty === 'long') {
+      d.c8 += cols; d.w8 += wk; d.pw8 += prW;
+      if (sh === 'morning') d.wTM += wk; else if (sh === 'bridge') d.wTP += wk; else d.wTTL += wk;
+    } else if (sh === 'afternoon' && ty === 'short') { d.cc += cols; d.wc += wk; d.pwc += prW; }
+    else { errores++; continue; }
+    filas++; if (!fmin || f < fmin) fmin = f; if (!fmax || f > fmax) fmax = f;
+  }
+  return { tipo: 'prod', datos, centros: Object.keys(datos).sort(), filas, errores, fmin, fmax };
+}
+function hoyIso() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+let _stage = null;
+function mostrarResumenCsv() {
+  const box = $('#csvRes'); box.textContent = ''; if (!_stage) return; const p = plan();
+  const t = el('div', 'note'); t.style.marginTop = '10px';
+  if (_stage.tipo === 'prod') {
+    t.append(el('div', null, '📊 Detectado: productividades por turno de PMR'));
+    t.append(el('div', null, 'Filas: ' + fmt0(_stage.filas) + (_stage.errores ? ' (' + _stage.errores + ' descartadas)' : '') + ' · Rango: ' + _stage.fmin + ' → ' + _stage.fmax));
+    // resumen por colmena: prod 8h media y cortas media
+    for (const c of _stage.centros) {
+      const ds = Object.values(_stage.datos[c]);
+      const n8 = ds.filter(d => d.w8 > 0).length;
+      const p8 = ds.reduce((a, d) => a + d.pw8, 0) / Math.max(ds.reduce((a, d) => a + d.w8, 0), 1);
+      const wc = ds.reduce((a, d) => a + d.wc, 0), pcM = wc > 0 ? ds.reduce((a, d) => a + d.pwc, 0) / wc : null;
+      t.append(el('div', null, '· ' + c + ': ' + n8 + ' días · prod 8h configurada ' + p8.toFixed(2) + (pcM ? ' · cortas ' + pcM.toFixed(2) : '') + (p.porCentro[c] ? '' : ' ⚠ no está en el plan')));
+    }
+    const rr = el('div', 'frow'); rr.style.marginTop = '10px';
+    rr.appendChild(h('<label style="display:flex;gap:7px;align-items:center;font-size:12px"><input type="radio" name="prodScope" value="hoy" checked style="width:auto"> solo desde hoy (resto de año)</label>'));
+    rr.appendChild(h('<label style="display:flex;gap:7px;align-items:center;font-size:12px"><input type="radio" name="prodScope" value="todo" style="width:auto"> todo el rango del CSV</label>'));
+    t.appendChild(rr);
+    t.appendChild(el('div', 'note', 'El alcance de arriba solo afecta a «Aplicar». «Cargar en Comparativa» guarda todos los días del CSV para verlos en la pestaña Comparativa, sin tocar el plan.'));
+    const acts = el('div'); acts.style.cssText = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap';
+    const bC = el('button', 'btn pri sm', 'Cargar en Comparativa (plan ' + p.año + ')'); bC.addEventListener('click', cargarProdComparativa);
+    const bA = el('button', 'btn sm', 'Aplicar al plan ' + p.año);
+    bA.addEventListener('click', () => { const sc = (document.querySelector('input[name=prodScope]:checked') || {}).value === 'todo' ? 'todo el rango del CSV' : 'solo desde hoy'; if (confirm('Sobrescribe las productividades del plan ' + p.año + ' con las del CSV (' + sc + ') y AMPLÍA las calles por turno/mes cuando PMR usa más vehículos que las del plan (nunca las reduce). Revisa antes la Comparativa si tienes dudas. ¿Continuar?')) aplicarProdCsv(); });
+    acts.append(bC, bA); t.appendChild(acts);
+    const cmpOut = el('div'); cmpOut.id = 'cmpOut'; cmpOut.style.marginTop = '12px'; t.appendChild(cmpOut);
+    box.appendChild(t);
+    return;
+  }
+  t.append(el('div', null, 'Filas: ' + fmt0(_stage.filas) + (_stage.errores ? ' (' + _stage.errores + ' descartadas)' : '') + ' · Colmenas: ' + _stage.centros.join(', ')), el('div', null, 'Rango: ' + _stage.fmin + ' → ' + _stage.fmax));
+  const nuevas = _stage.centros.filter(c => !p.centros.includes(c));
+  if (nuevas.length) t.append(el('div', null, '⚠ Colmenas nuevas: ' + nuevas.join(', ')));
+  const b = el('button', 'btn pri sm', 'Aplicar al plan ' + p.año); b.style.marginTop = '10px'; b.addEventListener('click', aplicarCsv); t.appendChild(b); box.appendChild(t);
+}
+// Guarda los datos CRUDOS de PMR por día (productividades, vehículos por
+// turno y columnas planificadas) para verlos en Comparativa. NO recalcula ni toca el plan.
+function cargarProdComparativa() {
+  const out = $('#cmpOut'); if (out) out.textContent = '';
+  const p = plan(); const dias = diasDelAño(p.año); const idxDe = Object.fromEntries(dias.map((d, i) => [d, i]));
+  let n = 0; const tocadas = [];
+  for (const c of _stage.centros) {
+    const pc = p.porCentro[c]; if (!pc) continue;
+    if (!Array.isArray(pc.extVeh) || pc.extVeh.length !== pc.cols.length) pc.extVeh = Array(pc.cols.length).fill(null);
+    if (!Array.isArray(pc.extCols) || pc.extCols.length !== pc.cols.length) pc.extCols = Array(pc.cols.length).fill(null);
+    let usado = false;
+    for (const [f, d] of Object.entries(_stage.datos[c])) {
+      const i = idxDe[f]; if (i === undefined) continue;
+      if (d.w8 > 0) { pc.extProd[i] = Math.round(d.pw8 / d.w8 * 100) / 100; n++; usado = true; }
+      if (d.wc > 0) { pc.extProdC[i] = Math.round(d.pwc / d.wc * 100) / 100; usado = true; }
+      if ((d.w8 > 0 || d.wc > 0)) {
+        pc.extVeh[i] = { tm: d.wTM || 0, tp: d.wTP || 0, ttl: d.wTTL || 0, ttc: d.wc || 0 };
+        pc.extCols[i] = Math.round((d.c8 || 0) + (d.cc || 0));
+        usado = true;
+      }
+    }
+    if (usado) tocadas.push(c);
+  }
+  if (!n) {
+    const añoCsv = parseInt((_stage.fmin || '0').slice(0, 4), 10);
+    if (out) {
+      out.appendChild(h('<div class="note">⚠ Ningún día del CSV (' + _stage.fmin + ' → ' + _stage.fmax + ') está en el plan <b>' + p.año + '</b>.</div>'));
+      if (DB.planes[String(añoCsv)] && String(añoCsv) !== String(p.año)) {
+        const bSw = el('button', 'btn sm', 'Cambiar al plan ' + añoCsv + ' y cargar'); bSw.style.marginTop = '8px';
+        bSw.addEventListener('click', () => { DB.activo = String(añoCsv); if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0]; renderPlanSel(); mostrarResumenCsv(); cargarProdComparativa(); });
+        out.appendChild(bSw);
+      }
+    }
+    return;
+  }
+  p.extMeta = 'Cargado ' + hoyIso() + ' · ' + _stage.fmin + ' → ' + _stage.fmax;
+  _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.remove('on');
+  seccion = 'cmp'; renderSeg(); tocado();
+  toast('Comparativa cargada: ' + fmt0(n) + ' días · ' + tocadas.length + ' colmenas');
+}
+function aplicarProdCsv() {
+  const p = plan(); const dias = diasDelAño(p.año); const idxDe = Object.fromEntries(dias.map((d, i) => [d, i]));
+  const desde = (document.querySelector('input[name=prodScope]:checked') || {}).value === 'todo' ? null : hoyIso();
+  let nD = 0, nM = 0, nCal = 0; const tocadas = [];
+  for (const c of _stage.centros) {
+    const pc = p.porCentro[c]; if (!pc) continue;          // solo colmenas ya existentes en el plan
+    const cortasMes = {}, maxMes = {}; let usado = false;
+    for (const [f, d] of Object.entries(_stage.datos[c])) {
+      if (desde && f < desde) continue;
+      const i = idxDe[f]; if (i === undefined) continue;
+      const m = mesDe(f);
+      if (d.w8 > 0) { pc.prod[i] = Math.round(d.pw8 / d.w8 * 100) / 100; nD++; usado = true; }
+      if (d.wc > 0) { const x = cortasMes[m] = cortasMes[m] || { pw: 0, wk: 0 }; x.pw += d.pwc; x.wk += d.wc; }
+      // máximo de vehículos usados por turno en el mes → evidencia de calles reales
+      const mm = maxMes[m] = maxMes[m] || { tm: 0, tp: 0, ttl: 0, ttc: 0 };
+      mm.tm = Math.max(mm.tm, d.wTM || 0); mm.tp = Math.max(mm.tp, d.wTP || 0);
+      mm.ttl = Math.max(mm.ttl, d.wTTL || 0); mm.ttc = Math.max(mm.ttc, d.wc || 0);
+    }
+    for (const m of Object.keys(cortasMes)) { const x = cortasMes[m]; if (x.wk > 0) { pc.prodCortas[m] = Math.round(x.pw / x.wk * 100) / 100; nM++; usado = true; } }
+    // calles: solo SUBEN (PMR demuestra que existen); bajar es decisión manual
+    for (const m of Object.keys(maxMes)) {
+      const mm = maxMes[m];
+      for (const [campo, real] of [['callesTM', mm.tm], ['callesTP', mm.tp], ['largasTT', mm.ttl], ['cortasTT', mm.ttc]]) {
+        if (real > (pc[campo][m] || 0)) { pc[campo][m] = real; nCal++; usado = true; }
+      }
+    }
+    if (usado) tocadas.push(c);
+  }
+  _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.remove('on'); tocado();
+  toast(nD ? 'Aplicado: ' + fmt0(nD) + ' días de prod · ' + nM + ' meses de cortas · ' + nCal + ' calles ampliadas · ' + tocadas.length + ' colmenas' : '⚠ Ningún día del CSV coincide con el plan ' + p.año);
+}
+function aplicarCsv() {
+  const p = plan(); const dias = diasDelAño(p.año); const idxDe = Object.fromEntries(dias.map((d, i) => [d, i])); let n = 0;
+  for (const c of _stage.centros) { const ent = Object.entries(_stage.datos[c]).filter(([f]) => idxDe[f] !== undefined); if (!ent.length) continue; if (!p.centros.includes(c)) { p.centros.push(c); p.porCentro[c] = planVacio(p.año, [c]).porCentro[c]; } const pc = p.porCentro[c]; for (const [f, [tot, man]] of ent) { const i = idxDe[f]; pc.cols[i] = tot; pc.colsSM[i] = man != null ? man : 0; n++; } }
+  _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.remove('on'); tocado(); toast('Columnas aplicadas: ' + fmt0(n) + ' días');
+}
+function procesarCsv(txt) {
+  try {
+    // auto-detección: el export de PMR lleva Origin/Shift/...;
+    // la query de negocio lleva center/service_date/total_columns
+    const primera = (txt.split(/\r?\n/, 1)[0] || '').toLowerCase();
+    _stage = (primera.includes('origin') && primera.includes('shift')) ? parseProdCSV(txt) : parseCSV(txt, $('#chkAdj').checked);
+    mostrarResumenCsv();
+  } catch (e) { toast('⚠ ' + e.message); $('#csvRes').textContent = ''; }
+}
+function renderPlanSel() { const sel = $('#planSel'); sel.textContent = ''; for (const a of Object.keys(DB.planes).sort()) { const o = el('option', null, a); o.value = a; sel.appendChild(o); } sel.value = DB.activo; }
+function crearPlan(año, baseAño, modo, pct) {
+  const base = DB.planes[baseAño]; const p = planVacio(año, base.centros); const diasN = diasDelAño(año), diasB = diasDelAño(base.año); const n = Math.min(diasN.length, diasB.length); const factor = modo === 'escalar' ? 1 + (pct || 0) / 100 : 1;
+  for (const c of base.centros) { const src = base.porCentro[c], dst = p.porCentro[c];
+    for (let i = 0; i < n; i++) dst.prod[i] = src.prod[i]; if (diasN.length > n) for (let i = n; i < diasN.length; i++) dst.prod[i] = src.prod[diasB.length - 1];
+    dst.callesTM = src.callesTM.slice(); dst.callesTP = src.callesTP.slice(); dst.largasTT = (src.largasTT || Array(12).fill(0)).slice(); dst.cortasTT = (src.cortasTT || Array(12).fill(0)).slice();
+    dst.modoTP = src.modoTP; dst.ratioTP = src.ratioTP; dst.modoSM = src.modoSM || 'query'; dst.parrilla = clone(src.parrilla || HORARIOS_DEF[c] || HORARIOS_DEF._def); dst.prodCortas = Array.isArray(src.prodCortas) ? src.prodCortas.slice() : Array(12).fill(src.prodCortas > 0 ? src.prodCortas : 13); dst.pctTM = Array.isArray(src.pctTM) ? src.pctTM.slice() : pctTMDef(c); dst.pctTMmodo = src.pctTMmodo || 'negocio'; dst.durLarga = src.durLarga > 0 ? src.durLarga : 480; dst.durCorta = src.durCorta > 0 ? src.durCorta : 420;
+    if (modo !== 'vacias') { for (let i = 0; i < n; i++) { dst.cols[i] = Math.round(src.cols[i] * factor); dst.colsSM[i] = Math.round((src.colsSM ? src.colsSM[i] : 0) * factor); } if (diasN.length > n) for (let i = n; i < diasN.length; i++) { dst.cols[i] = Math.round(src.cols[diasB.length - 1] * factor); dst.colsSM[i] = Math.round((src.colsSM ? src.colsSM[diasB.length - 1] : 0) * factor); } }
+  }
+  DB.planes[String(año)] = p; DB.activo = String(año); if (!p.centros.includes(activeCentro)) activeCentro = p.centros[0]; renderPlanSel(); tocado(); toast('Plan ' + año + ' creado desde ' + baseAño);
+}
+function initEventos() {
+  $('#planSel').addEventListener('change', e => { DB.activo = e.target.value; if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0]; _stage = null; guardar(); renderRail(); renderView(); });
+  $('#bNuevo').addEventListener('click', () => { const años = Object.keys(DB.planes).sort(); $('#npAno').value = parseInt(años[años.length - 1], 10) + 1; const nb = $('#npBase'); nb.textContent = ''; for (const a of años) { const o = el('option', null, 'Plan ' + a); o.value = a; nb.appendChild(o); } nb.value = DB.activo; $('#mNuevo').classList.add('on'); });
+  $('#npCancel').addEventListener('click', () => $('#mNuevo').classList.remove('on'));
+  $('#mNuevo').addEventListener('pointerdown', e => { if (e.target === $('#mNuevo')) $('#mNuevo').classList.remove('on'); });
+  $('#npOk').addEventListener('click', () => { const año = parseInt($('#npAno').value, 10); if (!año || año < 2024 || año > 2100) { toast('Año no válido'); return; } if (DB.planes[String(año)] && !confirm('Ya existe el plan ' + año + '. ¿Sobrescribir?')) return; crearPlan(año, $('#npBase').value, document.querySelector('input[name=npCols]:checked').value, parseFloat($('#npPct').value) || 0); $('#mNuevo').classList.remove('on'); });
+  $('#bCsv').addEventListener('click', () => $('#mCsv').classList.add('on'));
+  const cerrarCsv = () => { $('#mCsv').classList.remove('on'); const m = $('#mCsv').querySelector('.modal'); if (m) m.classList.remove('wide'); };
+  $('#csvClose').addEventListener('click', cerrarCsv);
+  $('#mCsv').addEventListener('pointerdown', e => { if (e.target === $('#mCsv')) cerrarCsv(); });
+  const dz = $('#drop'); dz.addEventListener('click', () => $('#fCsv').click());
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); }); dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', async e => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) procesarCsv(await f.text()); });
+  $('#fCsv').addEventListener('change', async e => { const f = e.target.files[0]; if (f) procesarCsv(await f.text()); e.target.value = ''; });
+  $('#bParse').addEventListener('click', () => { const t = $('#csvPaste').value; if (!t.trim()) { toast('Pega el CSV'); return; } procesarCsv(t); });
+  $('#bExport').addEventListener('click', () => { const a = el('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' })); a.download = 'planificador_productividades.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Copia descargada'); });
+  $('#bImport').addEventListener('click', () => $('#fJson').click());
+  $('#fJson').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { const nuevo = JSON.parse(await f.text()); if (!dbValida(nuevo)) throw new Error('copia no válida'); if (!confirm('Sustituir TODOS los planes por los del archivo?')) return; DB = nuevo; if (!DB.planes[DB.activo]) DB.activo = Object.keys(DB.planes)[0]; if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0]; renderPlanSel(); guardar(); renderRail(); renderView(); toast('Copia restaurada'); } catch (err) { toast('⚠ ' + err.message); } e.target.value = ''; });
+  addEventListener('beforeunload', () => { clearTimeout(_saveT); try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) {} });
+  addEventListener('dragover', e => e.preventDefault()); addEventListener('drop', e => e.preventDefault());
+}
+
+/* ---------- ARRANQUE ---------- */
+cargarDB();
+if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0];
+renderPlanSel(); renderRail(); renderSeg(); initEventos(); renderView();
+nubeCheckInicio();
+</script>
+</body>
+</html>
