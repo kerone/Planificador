@@ -1331,7 +1331,7 @@ function viewOleadas(v) {
 
 /* ---------- VISTA: Comparativa (plan vs PMR) ---------- */
 let _cmpMes = 0;
-let _cmpMetrica = 'veh';   // gráfica de la Comparativa: 'veh' | 'prod'
+let _cmpMetrica = 'prod';   // gráfica de la Comparativa: 'prod' (defecto) | 'veh'
 function viewCmp(v) {
   const p = plan(), pc = p.porCentro[activeCentro];
   const dias = diasDelAño(p.año);
@@ -1389,7 +1389,7 @@ function viewCmp(v) {
       kpi('Vehículos/día · PMR vs plan', mPicoT.toFixed(0) + ' / ' + mPicoP.toFixed(0), rowsF.length + ' días comparados'),
       kpi('Δ vehículos/día', (dPico >= 0 ? '+' : '') + dPico.toFixed(1), dPico >= 0.5 ? 'PMR usa más (plan corto)' : dPico <= -0.5 ? 'PMR usa menos' : 'alineados', dPico >= 0.5 ? 'var(--bad)' : dPico <= -0.5 ? 'var(--good)' : 'var(--good)'),
       kpi('Días con más veh. en PMR', fmt0(diasMas), 'de ' + rowsF.length, diasMas ? 'var(--warn)' : 'var(--good)'),
-      kpi('Prod 8h · PMR vs plan', mProdT.toFixed(2) + ' / ' + mProdP.toFixed(2), 'columnas/ruta'),
+      kpi('Productividad · PMR vs plan', mProdT.toFixed(2) + ' / ' + mProdP.toFixed(2), 'columnas/ruta'),
       kpi('Columnas · negocio / plan / PMR', fmt0(sNeg) + ' / ' + fmt0(sP) + ' / ' + fmt0(sT), 'en el periodo'),
     );
   } else kp.append(kpi('Sin datos', '—', 'en el periodo filtrado'));
@@ -1398,7 +1398,7 @@ function viewCmp(v) {
   // gráfico: Δ PMR − plan, conmutable entre vehículos (pico) y productividad 8 h
   const esProd = _cmpMetrica === 'prod';
   const cg = card('Diferencia de ' + (esProd ? 'productividad' : 'vehículos'),
-    (_cmpMes === 0 ? 'media por mes' : 'día a día · ' + MESES_L[_cmpMes - 1]) + (esProd ? ' · prod 8 h · Δ = PMR − plan' : ' · pico de la jornada'));
+    (_cmpMes === 0 ? 'media por mes' : 'día a día · ' + MESES_L[_cmpMes - 1]) + (esProd ? ' · Δ = PMR − plan' : ' · pico de la jornada'));
   const swm = el('div'); swm.style.cssText = 'margin-left:auto;display:flex;gap:6px';
   for (const [k, t] of [['veh', 'Vehículos'], ['prod', 'Productividad']]) {
     const b = el('button', 'btn sm' + (_cmpMetrica === k ? ' pri' : ''), t);
