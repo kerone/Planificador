@@ -97,6 +97,11 @@ más baja.
 - Calles por mes: derivadas de los máximos por turno del mismo Excel.
 - **+ Nuevo año** crea el 2027 copiando productividades y calles; las columnas se
   dejan vacías (se cargan de la query), se copian o se copian escaladas +X %.
+  La copia de valores diarios (productividades y columnas) se alinea **por día de
+  la semana**: cada día del año nuevo toma el día equivalente del base (lunes ↔
+  lunes, ±3 días; en los bordes del año salta una semana), así el patrón semanal
+  no se desplaza. Al importar después el CSV de negocio, los días presentes en el
+  CSV machacan los valores copiados.
 
 ## Importar CSV (auto-detecta el formato)
 

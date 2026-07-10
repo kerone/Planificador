@@ -231,6 +231,7 @@
     <label><input type="radio" name="npCols" value="copiar" style="width:auto"><span>Copiar columnas del año base</span></label>
     <label><input type="radio" name="npCols" value="escalar" style="width:auto"><span>Copiar escaladas</span> <input type="number" id="npPct" value="10" style="width:64px"> %</label>
   </div>
+  <div class="sub" style="margin-top:6px">La copia (productividades y columnas) se alinea por día de la semana: cada lunes toma el lunes equivalente del año base. Al importar luego el CSV de negocio, los días del CSV machacan lo copiado.</div>
   <div class="macts"><button class="btn sm" id="npCancel">Cancelar</button><button class="btn pri sm" id="npOk">Crear</button></div>
 </div></div>
 <script>
@@ -1550,12 +1551,19 @@ function procesarCsv(txt) {
 }
 function renderPlanSel() { const sel = $('#planSel'); sel.textContent = ''; for (const a of Object.keys(DB.planes).sort()) { const o = el('option', null, a); o.value = a; sel.appendChild(o); } sel.value = DB.activo; }
 function crearPlan(año, baseAño, modo, pct) {
-  const base = DB.planes[baseAño]; const p = planVacio(año, base.centros); const diasN = diasDelAño(año), diasB = diasDelAño(base.año); const n = Math.min(diasN.length, diasB.length); const factor = modo === 'escalar' ? 1 + (pct || 0) / 100 : 1;
+  const base = DB.planes[baseAño]; const p = planVacio(año, base.centros); const diasN = diasDelAño(año), diasB = diasDelAño(base.año); const factor = modo === 'escalar' ? 1 + (pct || 0) / 100 : 1;
+  // copia alineada por día de la semana (lunes ↔ lunes): cada día del año
+  // nuevo toma el día equivalente del base, desplazado ±3 días como mucho;
+  // en los bordes del año salta ±1 semana para no salirse del base
+  const dowN = new Date(isoToMs(diasN[0])).getUTCDay(), dowB = new Date(isoToMs(diasB[0])).getUTCDay();
+  let delta = (dowN - dowB + 7) % 7; if (delta > 3) delta -= 7;
+  const nB = diasB.length;
+  const mapa = diasN.map((_, i) => { let j = i + delta; while (j < 0) j += 7; while (j >= nB) j -= 7; return j; });
   for (const c of base.centros) { const src = base.porCentro[c], dst = p.porCentro[c];
-    for (let i = 0; i < n; i++) dst.prod[i] = src.prod[i]; if (diasN.length > n) for (let i = n; i < diasN.length; i++) dst.prod[i] = src.prod[diasB.length - 1];
+    for (let i = 0; i < diasN.length; i++) dst.prod[i] = src.prod[mapa[i]];
     dst.callesTM = src.callesTM.slice(); dst.callesTP = src.callesTP.slice(); dst.largasTT = (src.largasTT || Array(12).fill(0)).slice(); dst.cortasTT = (src.cortasTT || Array(12).fill(0)).slice();
     dst.modoTP = src.modoTP; dst.ratioTP = src.ratioTP; dst.modoSM = src.modoSM || 'query'; dst.parrilla = clone(src.parrilla || HORARIOS_DEF[c] || HORARIOS_DEF._def); dst.prodCortas = Array.isArray(src.prodCortas) ? src.prodCortas.slice() : Array(12).fill(src.prodCortas > 0 ? src.prodCortas : 13); dst.pctTM = Array.isArray(src.pctTM) ? src.pctTM.slice() : pctTMDef(c); dst.pctTMmodo = src.pctTMmodo || 'negocio'; dst.durLarga = src.durLarga > 0 ? src.durLarga : 480; dst.durCorta = src.durCorta > 0 ? src.durCorta : 420;
-    if (modo !== 'vacias') { for (let i = 0; i < n; i++) { dst.cols[i] = Math.round(src.cols[i] * factor); dst.colsSM[i] = Math.round((src.colsSM ? src.colsSM[i] : 0) * factor); } if (diasN.length > n) for (let i = n; i < diasN.length; i++) { dst.cols[i] = Math.round(src.cols[diasB.length - 1] * factor); dst.colsSM[i] = Math.round((src.colsSM ? src.colsSM[diasB.length - 1] : 0) * factor); } }
+    if (modo !== 'vacias') for (let i = 0; i < diasN.length; i++) { dst.cols[i] = Math.round((src.cols[mapa[i]] || 0) * factor); dst.colsSM[i] = Math.round(((src.colsSM ? src.colsSM[mapa[i]] : 0) || 0) * factor); }
   }
   DB.planes[String(año)] = p; DB.activo = String(año); if (!p.centros.includes(activeCentro)) activeCentro = p.centros[0]; renderPlanSel(); tocado(); toast('Plan ' + año + ' creado desde ' + baseAño);
 }
