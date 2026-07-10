@@ -10,7 +10,7 @@
 <style>
   :root{
     --bg:#0a0c11; --surface:#12151d; --surface2:#171b25; --elevated:#1d222e;
-    --border:#232a36; --border2:#2f3746; --line:#1c2230;
+    --border:#262e3b; --border2:#39445a; --line:#1e2532;
     --text:#eef1f7; --dim:#aab4c8; --faint:#707b90;
     --accent:#5b8cff; --accent-dim:rgba(91,140,255,.14);
     --tm:#5b8cff; --ttl:#34d399; --ttc:#fbbf24; --tp:#b47cff;
@@ -31,7 +31,7 @@
   /* HEADER */
   header{height:54px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border)}
   .logo{font-weight:800;font-size:15px;letter-spacing:-0.02em;display:flex;align-items:center;gap:9px}
-  .logo .dot{width:9px;height:9px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .logo .dot{width:9px;height:9px;border-radius:3px;background:var(--accent)}
   .logo .sub{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
   .hgrow{flex:1}
   .hactions{display:flex;align-items:center;gap:8px}
@@ -44,18 +44,18 @@
   .btn{font-family:var(--sans);font-weight:600;font-size:12px;padding:7px 13px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--dim);cursor:pointer;transition:all .15s;white-space:nowrap}
   .btn:hover{color:var(--text);border-color:var(--faint)}
   .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.pri:hover{background:#4a7cf0;box-shadow:0 0 16px rgba(91,140,255,.4)}
+  .btn.pri:hover{background:#4a7cf0}
   .btn.sm{padding:5px 10px;font-size:11px;border-radius:7px}
   .btn.gho{background:transparent}
 
   /* COLMENAS (barra horizontal arriba) — cada una con su color (--cc) */
   .colmbar{display:flex;gap:7px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
-  .colm{display:flex;flex-direction:column;gap:3px;padding:8px 14px;min-width:104px;cursor:pointer;border:1px solid var(--border);border-radius:11px;background:var(--surface2);border-top:3px solid var(--cc,var(--faint));transition:all .12s;flex-shrink:0}
+  .colm{display:flex;flex-direction:column;gap:3px;padding:9px 14px;min-width:104px;cursor:pointer;border:1px solid var(--border);border-radius:11px;background:var(--surface2);transition:all .12s;flex-shrink:0}
   .colm:hover{background:var(--elevated)}
-  .colm.on{background:color-mix(in srgb,var(--cc) 15%,var(--surface2));border-color:var(--cc);box-shadow:0 0 0 1px var(--cc)}
+  .colm.on{background:color-mix(in srgb,var(--cc) 9%,var(--surface2));border-color:color-mix(in srgb,var(--cc) 55%,var(--border2))}
   .colm .cn{font-weight:800;font-size:14px;letter-spacing:-.01em;color:var(--dim);display:flex;align-items:center;gap:7px}
   .colm.on .cn{color:var(--text)}
-  .colm .cn::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--cc,var(--faint));flex-shrink:0}
+  .colm .cn::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--cc,var(--faint));flex-shrink:0}
   .colm .cm{font-family:var(--mono);font-size:10.5px;color:var(--faint);display:flex;gap:9px}
   .colm .cpom{color:var(--dim);font-weight:600}
   .colm.add{min-width:0;align-items:center;justify-content:center;border:1px dashed var(--border2);color:var(--faint);font-size:19px;font-weight:400;padding:8px 15px}
@@ -109,11 +109,12 @@
 
   /* CHIPS filter (meses) — más grandes; color por productividad vía --pc */
   .chips{display:flex;gap:5px;flex-wrap:wrap}
-  .chip{font-family:var(--mono);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:9px;cursor:pointer;border:1px solid var(--pc,var(--border2));background:transparent;color:var(--pc,var(--dim));transition:all .12s}
-  .chip:hover{filter:brightness(1.25)}
-  .chip.on{background:color-mix(in srgb,var(--pc,var(--accent)) 22%,transparent);border-color:var(--pc,var(--accent));color:#fff;box-shadow:0 0 0 1px var(--pc,var(--accent))}
-  .chip.plain{color:var(--dim);border-color:var(--border2)}
-  .chip.plain.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);box-shadow:none}
+  .chip{font-family:var(--mono);font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--dim);transition:all .12s;display:inline-flex;align-items:center;gap:7px}
+  .chip::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--pc,var(--faint));flex-shrink:0}
+  .chip:hover{border-color:var(--border2);color:var(--text)}
+  .chip.on{background:var(--elevated);border-color:var(--accent);color:var(--text)}
+  .chip.plain::before{display:none}
+  .chip.plain.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
 
   /* TABLE */
   .twrap{overflow:auto}
@@ -868,7 +869,7 @@ const COLM_COLOR = { bcn1: '#5b8cff', vlc1: '#22c55e', mad1: '#ef4444', alc1: '#
 const colmColor = c => (DB && DB.colores && DB.colores[c]) || COLM_COLOR[c] || '#8b93a8';
 // color por productividad: azul (más baja del año) → verde (más alta).
 // Sin rojos: no es una alarma, solo una escala.
-function prodColor(v, min, max) { if (!(v > 0) || max <= min) return 'hsl(140 55% 52%)'; const r = Math.max(0, Math.min(1, (v - min) / (max - min))); return 'hsl(' + Math.round(215 - r * 75) + ' 62% 56%)'; }
+function prodColor(v, min, max) { if (!(v > 0) || max <= min) return 'hsl(140 40% 58%)'; const r = Math.max(0, Math.min(1, (v - min) / (max - min))); return 'hsl(' + Math.round(215 - r * 75) + ' 48% 62%)'; }
 // chips de meses: más grandes y coloreados por la productividad media del mes
 // (verde = la más alta del año, rojo = la más baja); AÑO neutro
 function mesesChips(pc, dias, sel, onClick) {
