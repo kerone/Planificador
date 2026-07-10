@@ -14,8 +14,10 @@ La sincronización se configura **en el código** (constante `NUBE_CONFIG` al in
 del `<script>` de `index.html`): pon la URL del proyecto y la clave `anon` y queda
 activa sin ningún botón — guarda en la nube al editar (el ☁ de la cabecera se
 ilumina), siembra el documento la primera vez y, al abrir, si la nube va por
-delante **se carga sola, sin preguntar** (la nube manda: siempre ves lo de Supabase). Así el `index.html` puede servirse estático desde
-GitHub Pages y todos los equipos comparten datos.
+delante **se carga sola, sin preguntar** (la nube manda: siempre ves lo de Supabase).
+Si cierras la pestaña con cambios aún sin subir, se suben solos al volver a abrir; y si
+una subida falla, el ☁ se pone rojo con el motivo y sale un aviso. Así el `index.html`
+puede servirse estático desde GitHub Pages y todos los equipos comparten datos.
 
 1. Crea la tabla una vez (SQL Editor de Supabase):
 
@@ -47,14 +49,15 @@ editable celda a celda como siempre.
    enteras con techo/ROUNDUP):
 
    ```
-   Rutas TM     = techo(POM × %OfertaTM ÷ prod)   ≤ calles TM
+   Rutas TM     = techo(POM × %OfertaTM ÷ prod)   ≤ máx TM
    Rutas largas = techo del resto                  ≤ máximo largas
    Rutas cortas = resto ÷ (prod × 6,5/7,5)         ≤ máximo cortas
-   Rutas TP     = resto                            ≤ mín(calles TP, calles TM ÷ 2)
+   Rutas TP     = resto                            ≤ mín(máx TP, máx TM ÷ 2)
    ```
 
-   `%Oferta TM` es parámetro por colmena y mes (0,5 general · 0,7 PAN2/PAN3 ·
-   0,52 mad3 sep–dic). Las cortas rinden `prod × 6,5/7,5` (con 15,8 → 13,69).
+   `%Oferta TM`: por defecto **manda negocio** — cada día usa su % real de la query
+   (mañana ÷ total); la grid por colmena y mes (0,5 general · 0,7 PAN2/PAN3 ·
+   0,52 mad3 sep–dic) es el respaldo, o la norma en modo «fijo». Las cortas rinden `prod × 6,5/7,5` (con 15,8 → 13,69).
 
 4. **Operativa del día** (fase 2, con la oferta real; POM editable por día):
    cascada **puente → mañana → largas → cortas**, cada turno con techo y capado a
@@ -81,26 +84,26 @@ colmena nueva (código + color identitario): nace vacía y en todos los planes �
 configura sus máximos por turno en Parámetros y carga sus columnas con el CSV.
 Las **secciones** están en el menú vertical
 de la izquierda. Los **filtros de mes** (Día a día / Comparativa) van coloreados
-por la productividad media del mes: **verde = la más alta del año**, rojo = la
-más baja.
+por la productividad media del mes: **verde = la más alta del año**, azul = la
+más baja (sin rojos: no es una alarma).
 
 ## Secciones (por colmena, en el menú lateral)
 
 | Sección | Función |
 |---|---|
-| **Día a día** | La tabla del Excel por día, con filtros por mes y gráficos. **Negocio**, productividad, **POM** y Oferta SM editables por día. Muestra **Negocio** (lo que pide negocio) y **Servido** (lo que la flota reparte de verdad = Σ rutas × productividad) por separado: casi nunca coinciden por el redondeo del nº de rutas (100 col ÷ 16,9 = 5,9 → 6 rutas → 6 × 16,9 ≈ 101 servidas), y la columna **Δ neg** muestra el ±. Las columnas por turno (Col TM/TT/TP) son rutas × prod y suman al Servido. Muestra **Servido**, **Faltan** (columnas que no llegan) y **% Cob**; TT-L / TT-C por separado; y **Limita** = el turno que agota sus calles (*faltan largas* / *cortas* / *calles TP*). Un anillo de cobertura y KPIs resumen el periodo filtrado. |
+| **Día a día** | La tabla del Excel por día, con filtros por mes y gráficos. **Negocio**, productividad, **POM** y Oferta SM editables por día. Muestra **Negocio** (lo que pide negocio) y **Servido** (lo que la flota reparte de verdad = Σ rutas × productividad) por separado: casi nunca coinciden por el redondeo del nº de rutas (100 col ÷ 16,9 = 5,9 → 6 rutas → 6 × 16,9 ≈ 101 servidas), y la columna **Δ neg** muestra el ±. Las columnas por turno (Col TM/TT/TP) son rutas × prod y suman al Servido. Muestra **Servido**, **Δ neg** y **% Cob**; TT-L / TT-C por separado; y **Limita** = el turno que agota su máximo (*faltan largas* / *cortas* / *puente* / *vehículos tarde* / *tope de vehículos*). Un anillo de cobertura y KPIs resumen el periodo filtrado. |
 | **Mensual** | POM automático (máx. del mes) con override, gráfico POM vs capacidad y **columnas sin servir por mes**, y el desglose del POM por turno. |
-| **Parámetros** | **Máximo de vehículos** por turno y mes, cada uno parametrizable: TM, **TT largas**, **TT cortas** y TP (12 meses) — son las «calles» de la Carpeta Verde. Productividad por mes de las rutas de 8 h (media de los días; editarla fija el mes), productividad de las cortas **por mes** (ref. 13), criterio TP y % TP, criterio Oferta SM y la parrilla de carga. |
+| **Parámetros** | **Máximo de vehículos** por turno y mes, cada uno parametrizable: TM, **TT largas**, **TT cortas** y TP (12 meses) — son las «calles» de la Carpeta Verde. Productividad por mes de las rutas de 8 h (media de los días; editarla fija el mes) — las cortas rinden siempre prod × 6,5/7,5 —, criterio TP y % TP, criterio Oferta SM y la parrilla de carga. |
 | **Oleadas** | Gantt de la jornada (06:00–00:00) con las oleadas de carga por turno según la parrilla. |
-| **Comparativa** | Día a día plan vs PMR, **cada lado con sus vehículos**: el plan con los que calcula el motor, PMR con los reales del CSV (`Workers`). Carga el export de turnos con «Importar CSV → Cargar en Comparativa» (se guarda con el plan, no lo modifica ni recalcula) y muestra KPIs, gráfico de diferencia conmutable (**vehículos o productividad**, PMR − plan) y tabla diaria con prod plan/PMR, vehículos por turno M·P·T de cada lado, **Δ vehículos por turno** (+ rojo = PMR usa más / − verde = usa menos) y **columnas Negocio / plan / PMR**, con filtro por mes. Las barras de todos los gráficos son clicables: llevan al día o al mes de la tabla. Los gráficos se dibujan al ancho real de la pantalla y se redimensionan solos. |
+| **Comparativa** | Día a día plan vs PMR, **cada lado con sus vehículos**: el plan con los que calcula el motor, PMR con los reales del CSV (`Workers`). Carga el export de turnos con «Importar CSV → Cargar en Comparativa» (se guarda con el plan, no lo modifica ni recalcula) y muestra KPIs, gráfico de diferencia conmutable (**vehículos o productividad**, PMR − plan) y tabla diaria con prod plan/PMR, vehículos por turno M·P·T de cada lado, **Δ vehículos por turno** (+ rojo = PMR usa más / − verde = usa menos) y **columnas Negocio / plan / PMR**, con filtro por mes. Las barras de todos los gráficos son clicables: llevan al día o al mes de la tabla. Los gráficos se dibujan al ancho real de la pantalla y se redimensionan solos. El botón «Vaciar» borra los datos PMR cargados (el plan no se toca). |
 | **Guía** | Resumen del modelo y de qué se edita. |
 
 ## Datos iniciales y año nuevo
 
 - Productividades por día 2026: del Excel «Productividades Reparto 2026».
 - Columnas por día 2026: foto de la query de negocio del 08/07/2026.
-- Calles por mes: derivadas de los máximos por turno del mismo Excel.
-- **+ Nuevo año** crea el 2027 copiando productividades y calles; las columnas se
+- Máximos de vehículos por turno y mes: derivados del mismo Excel.
+- **+ Año** crea el 2027 copiando productividades y calles; las columnas se
   dejan vacías (se cargan de la query), se copian o se copian escaladas +X %.
   La copia de valores diarios (productividades y columnas) se alinea **por día de
   la semana**: cada día del año nuevo toma el día equivalente del base (lunes ↔
@@ -120,10 +123,11 @@ El botón «Importar CSV» acepta dos exports y detecta solo cuál le pasas:
    sincroniza la productividad diaria de las 8 h (la **configurada** del CSV,
    campo `Productivity`, ponderada por trabajadores de mañana + puente + tarde
    larga — así coincide con la query, p.ej. 16,75, y no con el 16,76 que sale de
-   dividir las columnas planificadas redondeadas), las cortas por mes y las
-   **calles por turno/mes** (los máximos por turno se amplían a los vehículos que PMR usó en el mes cuando superan los del plan; nunca se reducen
-   solas), con alcance a elegir: solo desde hoy (resto de año) o todo el rango
-   del CSV. Si el CSV es de otro año que el plan activo, ofrece cambiar de plan.
+   dividir las columnas planificadas redondeadas) y los
+   **máximos de vehículos por turno/mes** (se amplían a los vehículos que PMR usó
+   en el mes cuando superan los del plan; nunca se reducen solos), con alcance a
+   elegir: solo desde hoy (resto de año) o todo el rango del CSV. Si el CSV es de
+   otro año que el plan activo, «Cargar en Comparativa» ofrece cambiar de plan.
 
 Para las columnas, exporta la consulta de siempre a CSV:
 
