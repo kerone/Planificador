@@ -11,7 +11,7 @@
   :root{
     --bg:#0a0c11; --surface:#12151d; --surface2:#171b25; --elevated:#1d222e;
     --border:#232a36; --border2:#2f3746; --line:#1c2230;
-    --text:#eef1f7; --dim:#9aa4b8; --faint:#5d6678;
+    --text:#eef1f7; --dim:#aab4c8; --faint:#707b90;
     --accent:#5b8cff; --accent-dim:rgba(91,140,255,.14);
     --tm:#5b8cff; --ttl:#34d399; --ttc:#fbbf24; --tp:#b47cff;
     --good:#34d399; --warn:#fbbf24; --bad:#f87171; --cap:#8b93a8;
@@ -116,8 +116,8 @@
 
   /* TABLE */
   .twrap{overflow:auto}
-  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px}
-  thead th{position:sticky;top:0;z-index:5;background:var(--surface2);color:var(--faint);font-size:9.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;text-align:right;padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  thead th{position:sticky;top:0;z-index:5;background:var(--surface2);color:var(--faint);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;text-align:right;padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
   thead th.l{text-align:left}
   tbody td{padding:7px 11px;text-align:right;border-bottom:1px solid var(--line);color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
   tbody tr:not(.msep):hover td{background:rgba(255,255,255,.025)}
@@ -856,57 +856,74 @@ function ring(pct, size) {
   return w;
 }
 // barras apiladas. data:[{x,cap,alert,vals:{k},tip}] series:[{key,color}]
+// los gráficos se dibujan al ancho REAL del contenedor (nada de estirar un
+// viewBox fijo, que deformaba barras y números en pantallas grandes) y se
+// redibujan solos al cambiar el tamaño de la ventana
+function chartBox(draw) {
+  const w = el('div'); w.style.cssText = 'overflow-x:auto;min-width:0';
+  let last = 0;
+  const paint = () => { const cw = Math.floor(w.clientWidth); if (!cw || Math.abs(cw - last) < 8) return; last = cw; w.textContent = ''; w.appendChild(draw(Math.max(560, cw))); };
+  new ResizeObserver(paint).observe(w);
+  requestAnimationFrame(paint);
+  return w;
+}
 function stacked(data, series, opts) {
   opts = opts || {};
-  const W = opts.w || 1140, H = opts.h || 210, mL = 42, mR = 10, mT = 8, mB = 24;
+  return chartBox(W => {
+  const H = opts.h || 210, mL = 46, mR = 12, mT = 10, mB = 26;
   const pw = W - mL - mR, ph = H - mT - mB;
   const tots = data.map(d => series.reduce((a, s) => a + (d.vals[s.key] || 0), 0));
   const ymax = niceMax(Math.max(1, ...tots, ...data.map(d => d.cap || 0)));
-  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, preserveAspectRatio: 'none' });
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H });
   svg.style.display = 'block';
-  for (let g = 0; g <= 4; g++) { const y = mT + ph - ph * g / 4; svg.appendChild(sv('line', { x1: mL, x2: W - mR, y1: y, y2: y, stroke: 'var(--line)', 'stroke-width': 1 })); const tx = sv('text', { x: mL - 5, y: y + 3, 'text-anchor': 'end', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); tx.textContent = nf0.format(Math.round(ymax * g / 4)); svg.appendChild(tx); }
-  const n = data.length, bw = Math.min(opts.bw || 24, pw / n * 0.72);
+  for (let g = 0; g <= 4; g++) { const y = mT + ph - ph * g / 4; svg.appendChild(sv('line', { x1: mL, x2: W - mR, y1: y, y2: y, stroke: 'var(--line)', 'stroke-width': 1 })); const tx = sv('text', { x: mL - 6, y: y + 3.5, 'text-anchor': 'end', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); tx.textContent = nf0.format(Math.round(ymax * g / 4)); svg.appendChild(tx); }
+  const n = data.length, bw = Math.min(opts.bw || 44, pw / n * 0.72);
+  const xStep = Math.max(1, Math.ceil(n * 24 / pw));   // etiquetas X solo si caben
   data.forEach((d, i) => {
     const cx = mL + pw * (i + 0.5) / n; let acc = 0;
-    series.forEach(s => { const v = d.vals[s.key] || 0; if (v <= 0) return; const y0 = mT + ph - ph * acc / ymax, y1 = mT + ph - ph * (acc + v) / ymax; svg.appendChild(sv('rect', { x: cx - bw / 2, y: y1, width: bw, height: Math.max(y0 - y1 - 1, .5), fill: s.color, rx: 2 })); acc += v; });
-    if (d.cap) { const y = mT + ph - ph * d.cap / ymax; svg.appendChild(sv('line', { x1: cx - bw / 2 - 2, x2: cx + bw / 2 + 2, y1: y, y2: y, stroke: CT.cap, 'stroke-width': 1.5, 'stroke-dasharray': '3 2' })); }
-    if (d.top != null) { const yTop = mT + ph - ph * Math.max(acc, d.cap || 0) / ymax; const tt = sv('text', { x: cx, y: Math.max(9, yTop - 5), 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 9.5, 'font-weight': 700, 'font-family': 'var(--mono)' }); tt.textContent = d.top; svg.appendChild(tt); }
-    if (d.alert) svg.appendChild(sv('rect', { x: cx - 2, y: mT + ph + 6, width: 4, height: 4, rx: 1, fill: CT.bad }));
-    const xt = sv('text', { x: cx, y: H - 7, 'text-anchor': 'middle', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); xt.textContent = d.x; svg.appendChild(xt);
+    series.forEach(s => { const v = d.vals[s.key] || 0; if (v <= 0) return; const y0 = mT + ph - ph * acc / ymax, y1 = mT + ph - ph * (acc + v) / ymax; svg.appendChild(sv('rect', { x: cx - bw / 2, y: y1, width: bw, height: Math.max(y0 - y1 - 1, .5), fill: s.color, rx: 2.5 })); acc += v; });
+    if (d.cap) { const y = mT + ph - ph * d.cap / ymax; svg.appendChild(sv('line', { x1: cx - bw / 2 - 3, x2: cx + bw / 2 + 3, y1: y, y2: y, stroke: CT.cap, 'stroke-width': 1.5, 'stroke-dasharray': '3 2' })); }
+    if (d.top != null) { const yTop = mT + ph - ph * Math.max(acc, d.cap || 0) / ymax; const tt = sv('text', { x: cx, y: Math.max(10, yTop - 6), 'text-anchor': 'middle', fill: 'var(--text)', 'font-size': 10.5, 'font-weight': 700, 'font-family': 'var(--mono)' }); tt.textContent = d.top; svg.appendChild(tt); }
+    if (d.alert) svg.appendChild(sv('rect', { x: cx - 2, y: mT + ph + 7, width: 4, height: 4, rx: 1, fill: CT.bad }));
+    if (i % xStep === 0) { const xt = sv('text', { x: cx, y: H - 7, 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); xt.textContent = d.x; svg.appendChild(xt); }
     const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = 'pointer';
     hit.addEventListener('pointermove', ev => tipShow(ev.clientX, ev.clientY, d.tip)); hit.addEventListener('pointerleave', tipHide); if (opts.onClick) { hit.addEventListener('click', () => opts.onClick(i, d)); }
     svg.appendChild(hit);
   });
-  const w = el('div'); w.style.overflowX = 'auto'; w.appendChild(svg); return w;
+  return svg;
+  });
 }
 // barras divergentes (± alrededor de 0) para las desviaciones de la Comparativa
 function divBars(data, opts) {
   opts = opts || {};
-  const W = opts.w || 1140, H = opts.h || 190, mL = 46, mR = 10, mT = 10, mB = 22;
+  return chartBox(W => {
+  const H = opts.h || 190, mL = 50, mR = 12, mT = 12, mB = 24;
   const pw = W - mL - mR, ph = H - mT - mB;
   const mx = Math.max(0.2, ...data.map(d => Math.abs(d.v || 0)));
   const yDe = v => mT + ph / 2 - (v / mx) * (ph / 2);
-  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, preserveAspectRatio: 'none' });
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H });
   svg.style.display = 'block';
   for (const g of [mx, mx / 2, 0, -mx / 2, -mx]) {
     const yy = yDe(g);
     svg.appendChild(sv('line', { x1: mL, x2: W - mR, y1: yy, y2: yy, stroke: g === 0 ? 'var(--border2)' : 'var(--line)', 'stroke-width': 1 }));
-    const tx = sv('text', { x: mL - 5, y: yy + 3, 'text-anchor': 'end', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); tx.textContent = (g > 0 ? '+' : '') + (Math.round(g * 100) / 100); svg.appendChild(tx);
+    const tx = sv('text', { x: mL - 6, y: yy + 3.5, 'text-anchor': 'end', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); tx.textContent = (g > 0 ? '+' : '') + String(Math.round(g * 100) / 100).replace('.', ','); svg.appendChild(tx);
   }
-  const n = data.length, bw = Math.min(22, pw / n * 0.7);
+  const n = data.length, bw = Math.min(38, pw / n * 0.7);
+  const xStep = Math.max(1, Math.ceil(n * 24 / pw));
   const thr = opts.thr != null ? opts.thr : 0.1, cPos = opts.cPos || CT.ttc, cNeg = opts.cNeg || CT.bad;
   data.forEach((d, i) => {
     const cx = mL + pw * (i + 0.5) / n;
     if (d.v != null) {
       const y0 = yDe(0), y1 = yDe(d.v);
-      svg.appendChild(sv('rect', { x: cx - bw / 2, y: Math.min(y0, y1), width: bw, height: Math.max(Math.abs(y0 - y1), 1.2), fill: d.v <= -thr ? cNeg : d.v >= thr ? cPos : '#4b5563', rx: 2 }));
+      svg.appendChild(sv('rect', { x: cx - bw / 2, y: Math.min(y0, y1), width: bw, height: Math.max(Math.abs(y0 - y1), 1.5), fill: d.v <= -thr ? cNeg : d.v >= thr ? cPos : '#4b5563', rx: 2.5 }));
     }
-    const xt = sv('text', { x: cx, y: H - 6, 'text-anchor': 'middle', fill: 'var(--faint)', 'font-size': 9, 'font-family': 'var(--mono)' }); xt.textContent = d.x; svg.appendChild(xt);
+    if (i % xStep === 0) { const xt = sv('text', { x: cx, y: H - 7, 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); xt.textContent = d.x; svg.appendChild(xt); }
     const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = 'pointer';
     hit.addEventListener('pointermove', ev => tipShow(ev.clientX, ev.clientY, d.tip)); hit.addEventListener('pointerleave', tipHide); if (opts.onClick) { hit.addEventListener('click', () => opts.onClick(i, d)); }
     svg.appendChild(hit);
   });
-  const w = el('div'); w.style.overflowX = 'auto'; w.appendChild(svg); return w;
+  return svg;
+  });
 }
 
 /* ---------- selector visual de rango (Día a día) ---------- */
@@ -1314,6 +1331,7 @@ function viewOleadas(v) {
 
 /* ---------- VISTA: Comparativa (plan vs PMR) ---------- */
 let _cmpMes = 0;
+let _cmpMetrica = 'veh';   // gráfica de la Comparativa: 'veh' | 'prod'
 function viewCmp(v) {
   const p = plan(), pc = p.porCentro[activeCentro];
   const dias = diasDelAño(p.año);
@@ -1377,21 +1395,38 @@ function viewCmp(v) {
   } else kp.append(kpi('Sin datos', '—', 'en el periodo filtrado'));
   scroll.appendChild(kp);
 
-  // gráfico: Δ vehículos (pico) PMR − plan
-  const cg = card('Diferencia de vehículos', (_cmpMes === 0 ? 'media por mes' : 'día a día · ' + MESES_L[_cmpMes - 1]) + ' · pico de la jornada');
-  cg._b.appendChild(legend([{ c: CT.bad, t: '+ PMR usa más (plan corto)' }, { c: CT.ttl, t: '− PMR usa menos' }, { c: '#4b5563', t: 'igual' }]));
+  // gráfico: Δ PMR − plan, conmutable entre vehículos (pico) y productividad 8 h
+  const esProd = _cmpMetrica === 'prod';
+  const cg = card('Diferencia de ' + (esProd ? 'productividad' : 'vehículos'),
+    (_cmpMes === 0 ? 'media por mes' : 'día a día · ' + MESES_L[_cmpMes - 1]) + (esProd ? ' · prod 8 h · Δ = PMR − plan' : ' · pico de la jornada'));
+  const swm = el('div'); swm.style.cssText = 'margin-left:auto;display:flex;gap:6px';
+  for (const [k, t] of [['veh', 'Vehículos'], ['prod', 'Productividad']]) {
+    const b = el('button', 'btn sm' + (_cmpMetrica === k ? ' pri' : ''), t);
+    b.addEventListener('click', () => { _cmpMetrica = k; renderView(); });
+    swm.appendChild(b);
+  }
+  cg.children[0].appendChild(swm);
+  cg._b.appendChild(esProd
+    ? legend([{ c: CT.ttc, t: '+ PMR más alta' }, { c: CT.tm, t: '− PMR más baja' }, { c: '#4b5563', t: 'igual' }])
+    : legend([{ c: CT.bad, t: '+ PMR usa más (plan corto)' }, { c: CT.ttl, t: '− PMR usa menos' }, { c: '#4b5563', t: 'igual' }]));
   let cd;
   if (_cmpMes === 0) {
     cd = MESES.map((mm, mi) => {
-      const rm = rows.filter(r => r.m === mi);
+      const rm = rows.filter(r => r.m === mi && (!esProd || r.prodT != null));
       if (!rm.length) return { x: mm, v: null, tip: '<b>' + MESES_L[mi] + '</b><br>sin datos' };
-      const mp = rm.reduce((a, r) => a + r.vP.pico, 0) / rm.length, mt = rm.reduce((a, r) => a + r.vT.pico, 0) / rm.length;
-      return { x: mm, mes: mi, v: mt - mp, tip: '<b>' + MESES_L[mi] + '</b><br>PMR ' + mt.toFixed(1) + ' vs plan ' + mp.toFixed(1) + ' veh<br>' + rm.length + ' días<br><span style="color:var(--faint)">clic → ver el mes</span>' };
+      const mp = rm.reduce((a, r) => a + (esProd ? r.prodP : r.vP.pico), 0) / rm.length;
+      const mt = rm.reduce((a, r) => a + (esProd ? r.prodT : r.vT.pico), 0) / rm.length;
+      return { x: mm, mes: mi, v: mt - mp, tip: '<b>' + MESES_L[mi] + '</b><br>PMR ' + mt.toFixed(2) + ' vs plan ' + mp.toFixed(2) + (esProd ? ' col/ruta' : ' veh') + '<br>' + rm.length + ' días<br><span style="color:var(--faint)">clic → ver el mes</span>' };
     });
   } else {
-    cd = rowsF.map(r => ({ x: r.f.slice(8, 10), fecha: r.f, v: r.vT.pico - r.vP.pico, tip: '<b>' + fechaLarga(r.f) + '</b><br>plan ' + r.vP.pico + ' vs PMR ' + r.vT.pico + ' veh<br><span style="color:var(--faint)">clic → ir a la fila</span>' }));
+    cd = rowsF.map(r => ({ x: r.f.slice(8, 10), fecha: r.f,
+      v: esProd ? (r.prodT != null ? r.prodT - r.prodP : null) : r.vT.pico - r.vP.pico,
+      tip: '<b>' + fechaLarga(r.f) + '</b><br>' + (esProd ? 'plan ' + fmt2(r.prodP) + ' vs PMR ' + fmt2(r.prodT) + ' col/ruta' : 'plan ' + r.vP.pico + ' vs PMR ' + r.vT.pico + ' veh') + '<br><span style="color:var(--faint)">clic → ir a la fila</span>' }));
   }
-  if (cd.length) cg._b.appendChild(divBars(cd, { h: 190, thr: 0.5, cPos: CT.bad, cNeg: CT.ttl, onClick: (i, d) => { if (_cmpMes === 0) { _cmpMes = d.mes + 1; renderView(); } else if (d.fecha) scrollFila('fc-' + d.fecha); } }));
+  if (cd.length) cg._b.appendChild(divBars(cd, {
+    h: 190, thr: esProd ? 0.03 : 0.5,
+    cPos: esProd ? CT.ttc : CT.bad, cNeg: esProd ? CT.tm : CT.ttl,
+    onClick: (i, d) => { if (_cmpMes === 0) { _cmpMes = d.mes + 1; renderView(); } else if (d.fecha) scrollFila('fc-' + d.fecha); } }));
   else cg._b.appendChild(el('div', 'note', 'Sin datos en el periodo.'));
   scroll.appendChild(cg);
 
@@ -1459,7 +1494,7 @@ function viewGuia(v) {
 <h2>Negocio vs Servido</h2>\
 <p>En <b>Día a día</b>, «<b>Editar rango</b>» aplica un valor (productividad, negocio, POM u Oferta SM) a un rango de fechas de golpe — para no ir día a día. Se ven las dos cosas: <b>Negocio</b> = las columnas que pide negocio (editable), y <b>Servido</b> = lo que la flota reparte de verdad = Σ (rutas × productividad). Las columnas por turno (Col TM/TT/TP) son <b>rutas × prod</b> y suman al Servido. Casi nunca cae exacto sobre Negocio: si negocio pide 100 y la productividad es 16,9, hacen falta 6 rutas (100÷16,9=5,9→6) y 6×16,9≈101 → se reparte 101, no 100. Se envían las rutas <b>necesarias para cubrir</b> cada turno mientras haya vehículos (solo se ahorra el camión extra si fuera a &lt;10% de carga), así que la <b>Δ neg</b> suele ser holgura (+); solo sale − cuando los máximos se agotan de verdad. El <b>POM y la Oferta SM son editables por día</b> (vacío = el del mes / auto). Cuando las largas y las cortas están a tope, el resto de la tarde <b>se deriva al puente</b>. Un día en <b>rojo</b> no cubre por <b>capacidad</b> (vehículos): en «Limita» ves qué turno agota su máximo («tope de vehículos» si es todo). El anillo y el banner resumen la cobertura por capacidad del periodo.</p>\
 <h2>Datos</h2>\
-<p>Productividades del Excel 2026; columnas de la query 08/07/2026; máximos por turno derivados del Excel. «+ Año» crea 2027 copiando parámetros. «Importar CSV» detecta solo qué le pasas: el de <code>daily_business_offer</code> (columnas por día) o el export de turnos de PMR (Origin/Shift/...). Con este último puedes <b>Cargar en Comparativa</b> —se guarda con el plan y la pestaña <b>Comparativa</b> muestra el día a día plan vs PMR (vehículos por turno de cada lado, Δ vehículos y filtro por mes) sin tocar nada— o <b>Aplicar</b> para sincronizar el plan: productividades por día (la <b>configurada</b> del CSV —campo Productivity— ponderada por trabajadores de mañana+puente+tarde larga, así coincide con la query, p.ej. 16,75), cortas por mes, y <b>máximos de vehículos por turno/mes</b> — se amplían al máximo de vehículos que PMR usó en el mes cuando superan las del plan (nunca se reducen solas). Todo se guarda en el navegador; usa Exportar para copia. La <b>nube (Supabase)</b> se configura en el propio código (constante <code>NUBE_CONFIG</code> al inicio del script: URL + clave anon): con eso, guarda automáticamente al editar (verás el ☁ iluminarse), siembra el documento la primera vez y, al abrir, si la nube va por delante se carga sola (la nube manda) — ideal con el HTML servido desde GitHub Pages.</p>\
+<p>Productividades del Excel 2026; columnas de la query 08/07/2026; máximos por turno derivados del Excel. «+ Año» crea 2027 copiando parámetros. «Importar CSV» detecta solo qué le pasas: el de <code>daily_business_offer</code> (columnas por día) o el export de turnos de PMR (Origin/Shift/...). Con este último puedes <b>Cargar en Comparativa</b> —se guarda con el plan y la pestaña <b>Comparativa</b> muestra el día a día plan vs PMR (vehículos por turno de cada lado, gráfico de Δ conmutable entre <b>vehículos</b> y <b>productividad</b>, y filtro por mes) sin tocar nada— o <b>Aplicar</b> para sincronizar el plan: productividades por día (la <b>configurada</b> del CSV —campo Productivity— ponderada por trabajadores de mañana+puente+tarde larga, así coincide con la query, p.ej. 16,75), cortas por mes, y <b>máximos de vehículos por turno/mes</b> — se amplían al máximo de vehículos que PMR usó en el mes cuando superan las del plan (nunca se reducen solas). Todo se guarda en el navegador; usa Exportar para copia. La <b>nube (Supabase)</b> se configura en el propio código (constante <code>NUBE_CONFIG</code> al inicio del script: URL + clave anon): con eso, guarda automáticamente al editar (verás el ☁ iluminarse), siembra el documento la primera vez y, al abrir, si la nube va por delante se carga sola (la nube manda) — ideal con el HTML servido desde GitHub Pages.</p>\
 </div>'));
 }
 
