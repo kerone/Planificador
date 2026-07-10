@@ -167,6 +167,18 @@
   .rcell.sel{background:var(--accent-dim);border-color:var(--accent)}
   .rcell.sel .rn{color:var(--text)}
   .rcell.sel .rd{color:var(--accent)}
+  /* desplegable de cabecera (Copia ▾) */
+  .ddown{position:relative}
+  .ddown summary{list-style:none;cursor:pointer;display:inline-block}
+  .ddown summary::-webkit-details-marker{display:none}
+  .dd-panel{position:absolute;right:0;top:calc(100% + 6px);background:var(--elevated);border:1px solid var(--border2);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;z-index:120;box-shadow:var(--sh);white-space:nowrap}
+  /* bloques plegables (criterios avanzados, parrilla) */
+  .adv{margin-bottom:16px}
+  .adv>summary{cursor:pointer;font-weight:700;font-size:12.5px;color:var(--dim);padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;list-style:none}
+  .adv>summary::-webkit-details-marker{display:none}
+  .adv>summary::before{content:'▸  ';color:var(--faint)}
+  .adv[open]>summary{margin-bottom:14px;color:var(--text)}
+  .adv[open]>summary::before{content:'▾  '}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:1000px){.grid2{grid-template-columns:1fr}}
   .row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
@@ -211,8 +223,14 @@
       <select id="planSel" title="Año del plan"></select>
       <button class="btn sm" id="bNuevo">+ Año</button>
       <button class="btn pri sm" id="bCsv">Importar CSV</button>
-      <button class="btn sm gho" id="bExport">Exportar</button>
-      <button class="btn sm gho" id="bImport">Importar</button>
+      <details class="ddown" id="ddCopia">
+        <summary class="btn sm gho">Copia ▾</summary>
+        <div class="dd-panel">
+          <button class="btn sm" id="bExport">Descargar copia (JSON)</button>
+          <button class="btn sm" id="bImport">Restaurar copia (JSON)…</button>
+        </div>
+      </details>
+      <button class="btn sm gho" id="bGuia" title="Guía — cómo funciona">?</button>
       <span class="saved" id="nubeDot" title="Sincronizado con Supabase">☁</span>
       <input type="file" id="fJson" accept=".json" style="display:none">
     </div>
@@ -258,6 +276,10 @@
   <div class="frow"><label style="display:flex;gap:7px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0"><input type="checkbox" id="ncTodos" checked style="width:auto"> añadirla a todos los planes (años)</label></div>
   <div class="note" style="margin-top:4px">Se crea vacía. Después: configura sus <b>máximos por turno y parrilla</b> en Parámetros y carga sus <b>columnas</b> con el CSV de negocio (si la colmena viene en la query, los días se aplican directamente).</div>
   <div class="macts"><button class="btn sm" id="ncCancel">Cancelar</button><button class="btn pri sm" id="ncOk">Crear</button></div>
+</div></div>
+<div class="mbg" id="mGuia"><div class="modal wide" style="max-width:940px">
+  <div id="guiaBody" style="max-height:78vh;overflow:auto"></div>
+  <div class="macts"><button class="btn sm" id="guiaClose">Cerrar</button></div>
 </div></div>
 <script>
 'use strict';
@@ -717,7 +739,9 @@ function resumenMes(c) {
 /* ============================================================
    UI (rediseño): rail de colmenas + secciones + gráficos
    ============================================================ */
-const SECCIONES = [['dia','Día a día'],['mensual','Mensual'],['params','Parámetros'],['oleadas','Oleadas'],['cmp','Comparativa'],['guia','Guía']];
+// menú = el flujo de trabajo: planifico → ajusto parámetros → reviso la jornada → contrasto con PMR
+// (lo Mensual vive dentro de Plan con el chip AÑO; la Guía, en el botón «?» de la cabecera)
+const SECCIONES = [['dia','Plan'],['params','Parámetros'],['oleadas','Oleadas'],['cmp','Plan vs PMR']];
 let seccion = 'dia';
 let _diaMes = 0;          // 0 = año, 1..12 = mes (filtro Vista diaria)
 let _olFecha = null;
@@ -771,13 +795,12 @@ function renderSeg() {
 function renderView() {
   tipHide();
   $('#navCol').innerHTML = '<span style="color:' + colmColor(activeCentro) + '">' + activeCentro.toUpperCase() + '</span><span class="yr">' + plan().año + '</span>';
+  if (!SECCIONES.some(s => s[0] === seccion)) seccion = 'dia';
   const v = $('#view'); v.className = 'view' + (seccion === 'dia' || seccion === 'oleadas' || seccion === 'cmp' ? ' flush' : ''); v.textContent = '';
   if (seccion === 'dia') viewDia(v);
-  else if (seccion === 'mensual') viewMensual(v);
   else if (seccion === 'params') viewParams(v);
   else if (seccion === 'oleadas') viewOleadas(v);
   else if (seccion === 'cmp') viewCmp(v);
-  else if (seccion === 'guia') viewGuia(v);
 }
 function tocado() {
   guardar();
@@ -1044,7 +1067,7 @@ function rangoCard(p, pc, rows) {
   return c;
 }
 
-/* ---------- VISTA: Día a día ---------- */
+/* ---------- VISTA: Plan (día a día + nivel mensual con el chip AÑO) ---------- */
 function viewDia(v) {
   const p = plan(), pc = p.porCentro[activeCentro];
   const { rows } = calcColmena(activeCentro);
@@ -1105,6 +1128,8 @@ function viewDia(v) {
   else cg._b.appendChild(el('div', 'note', 'Sin días operativos en el periodo.'));
   scroll.appendChild(cg);
   scroll.appendChild(rangoCard(p, pc, rows));
+  // con AÑO seleccionado, Plan muestra también el nivel mensual (antes sección «Mensual»)
+  if (_diaMes === 0) bloquesMensuales(scroll);
 
   // tabla diaria
   const ct = card('Detalle diario', op.length + ' días con columnas');
@@ -1171,8 +1196,9 @@ function tablaDia(pc, rowsF, rowsAll) {
   return tbl;
 }
 
-/* ---------- VISTA: Mensual (POM + gráficos) ---------- */
-function viewMensual(v) {
+/* ---------- nivel mensual de Plan (chip AÑO): POM + gráficos ---------- */
+/* nivel mensual de la vista Plan (se pinta con el chip AÑO) */
+function bloquesMensuales(v) {
   const pc = plan().porCentro[activeCentro];
   const res = resumenMes(activeCentro);
   const { rows } = calcColmena(activeCentro);
@@ -1233,14 +1259,24 @@ function viewParams(v) {
   const dias = diasDelAño(p.año);
   const res = resumenMes(activeCentro);
 
-  // Máximo de vehículos por turno (las "calles" de la Carpeta Verde)
-  const defs = [['callesTM', 'Máximo TM (mañana)', null], ['largasTT', 'Máximo TT largas', 'green'], ['cortasTT', 'Máximo TT cortas', 'amber'], ['callesTP', 'Máximo TP (puente)', null]];
-  for (const [key, titulo, tg] of defs) {
-    const c = card(titulo, key === 'largasTT' ? 'rutas de 8 h (prod normal)' : key === 'cortasTT' ? 'rutas cortas (prod × 6,5/7,5)' : key === 'callesTP' ? 'el motor aplica mín(esto, máx TM ÷ 2)' : 'vehículos máx del turno de mañana (calles físicas)', tg ? '≤' : null, tg);
-    c._b.appendChild(mgrid(pc[key].map(x => ({ valor: x })), { onchange: (m, n) => { pc[key][m] = n; tocado(); } }));
-    if (key === 'cortasTT') { const nt = el('div', 'note'); nt.style.marginTop = '10px'; nt.innerHTML = 'Máximo TT = <b>largas + cortas</b> (la L de la Carpeta Verde). bcn1: 70 largas + 24 cortas.'; c._b.appendChild(nt); }
-    v.appendChild(c);
-  }
+  // Máximos de vehículos por turno (las "calles" de la Carpeta Verde), todo en UNA tarjeta
+  const cMax = card('Máximos de vehículos por turno', 'los topes («calles») de la Carpeta Verde · 12 meses cada uno');
+  const defs = [
+    ['callesTM', 'Máximo TM (mañana)', 'vehículos máx del turno de mañana (calles físicas)'],
+    ['largasTT', 'Máximo TT largas', 'rutas de 8 h (prod normal)'],
+    ['cortasTT', 'Máximo TT cortas', 'rutas cortas (prod × 6,5/7,5)'],
+    ['callesTP', 'Máximo TP (puente)', 'el motor aplica mín(esto, máx TM ÷ 2)'],
+  ];
+  defs.forEach(([key, titulo, sub], di) => {
+    const hd = el('div'); hd.style.cssText = 'display:flex;gap:10px;align-items:baseline;margin:' + (di ? '16px' : '0') + ' 0 8px';
+    const tt = el('span', null, titulo); tt.style.cssText = 'font-weight:700;font-size:12.5px;color:var(--text)';
+    hd.append(tt, el('span', 'note', sub));
+    cMax._b.appendChild(hd);
+    cMax._b.appendChild(mgrid(pc[key].map(x => ({ valor: x })), { onchange: (m, n) => { pc[key][m] = n; tocado(); } }));
+  });
+  const ntMax = el('div', 'note'); ntMax.style.marginTop = '12px'; ntMax.innerHTML = 'Máximo TT = <b>largas + cortas</b> (la L de la Carpeta Verde). bcn1: 70 largas + 24 cortas.';
+  cMax._b.appendChild(ntMax);
+  v.appendChild(cMax);
 
   // %Oferta TM (columna O de la Carpeta Verde)
   const cO = card('%Oferta TM', 'parte del POM que dimensiona el parque de la mañana', 'Carpeta Verde', 'green');
@@ -1248,7 +1284,6 @@ function viewParams(v) {
   cO._b.appendChild(selO);
   cO._b.appendChild(mgrid((pc.pctTM || pctTMDef(activeCentro)).map(x => ({ valor: x })), { onchange: (m, n) => { if (n > 0 && n <= 1) pc.pctTM[m] = n; else toast('⚠ %TM debe ser 0–1 (p. ej. 0,5)'); tocado(); } }));
   cO._b.appendChild(el('div', 'note', 'Con «manda negocio», el parque de mañana/tarde se reparte cada día como pide la query (Of.SM ÷ oferta) y desaparecen los déficits artificiales de parque; la grid solo se usa en días sin dato de mañana.'));
-  v.appendChild(cO);
 
   // Productividad
   const cP = card('Productividad por mes (rutas 8 h)', 'media de los días · editar fija el mes', 'columnas/ruta', 'green');
@@ -1267,12 +1302,21 @@ function viewParams(v) {
 
   const cSM = card('Oferta SM', 'reparto mañana/tarde');
   const selSM = el('select'); for (const [val, t] of [['query', 'Mañana de la query (manda negocio)'], ['techo', 'Techo del plan (POM SM)']]) { const o = el('option', null, t); o.value = val; selSM.appendChild(o); } selSM.value = pc.modoSM || 'query'; selSM.style.width = '100%'; selSM.addEventListener('change', () => { pc.modoSM = selSM.value; tocado(); }); cSM._b.appendChild(selSM);
-  const conSM = (pc.colsSM || []).filter(x => x > 0).length; cSM._b.appendChild(h('<div class="note" style="margin-top:10px">Mañana de la query en ' + fmt0(conSM) + ' días. El override por día (Vista diaria) manda sobre todo.</div>'));
+  const conSM = (pc.colsSM || []).filter(x => x > 0).length; cSM._b.appendChild(h('<div class="note" style="margin-top:10px">Mañana de la query en ' + fmt0(conSM) + ' días. El override por día (vista Plan) manda sobre todo.</div>'));
   g.appendChild(cSM);
-  v.appendChild(g);
 
-  // Parrilla (solo dibujo)
-  const cPar = card('Parrilla de carga por turno', 'solo dibuja el gantt de Oleadas · no limita rutas');
+  // criterios que se configuran una vez → plegados
+  const av = el('details', 'adv');
+  av.appendChild(el('summary', null, 'Criterios avanzados — %Oferta TM · turno puente (TP) · Oferta SM'));
+  av.append(cO, g);
+  v.appendChild(av);
+
+  v.appendChild(el('div', 'note', 'La parrilla de carga y la duración por tipo de ruta se editan en Oleadas, junto al gantt.'));
+}
+
+/* parrilla de carga + duraciones: se edita en Oleadas, junto al gantt que dibuja */
+function parrillaCard(pc) {
+  const cPar = card('Parrilla de carga por turno', 'solo dibuja el gantt · no limita rutas');
   for (const [key, nombre] of TURNOS) {
     const t = pc.parrilla[key] || (pc.parrilla[key] = clone(HORARIOS_DEF._def[key]));
     const blk = el('div'); blk.style.cssText = 'border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px';
@@ -1300,7 +1344,7 @@ function viewParams(v) {
   blkD.appendChild(el('div', 'note', 'Mañana, puente y tarde larga dibujan rutas largas; las cortas usan su propia duración.'));
   cPar._b.appendChild(blkD);
   if (activeCentro === 'pan2' || activeCentro === 'pan3') cPar._b.appendChild(h('<div class="note" style="color:var(--warn)">⚠ Parrilla provisional: PAN2/PAN3 no venían en las imágenes.</div>'));
-  v.appendChild(cPar);
+  return cPar;
 }
 
 /* ---------- VISTA: Oleadas (gantt) ---------- */
@@ -1359,10 +1403,15 @@ function viewOleadas(v) {
   const gw = el('div'); gw.style.overflowX = 'auto'; gw.appendChild(inner); cg._b.appendChild(gw);
   cg._b.appendChild(h('<div class="note" style="margin-top:10px">Mañana ' + pa.tm.muelles + '/' + pa.tm.carga + '′ desde ' + fmtHora(pa.tm.ini) + ' · Puente ' + pa.tp.muelles + '/' + pa.tp.carga + '′ desde ' + fmtHora(pa.tp.ini) + ' · Tarde ' + pa.tt.muelles + '/' + pa.tt.carga + '′ desde ' + fmtHora(pa.tt.ini) + '. Las cortas se dibujan tras las largas.</div>'));
   scroll.appendChild(cg);
+  // configuración de la parrilla junto al gantt que dibuja: editas y ves el efecto encima
+  const av = el('details', 'adv');
+  av.appendChild(el('summary', null, 'Configurar parrilla de carga y duraciones por tipo de ruta'));
+  av.appendChild(parrillaCard(pc));
+  scroll.appendChild(av);
   v.appendChild(scroll);
 }
 
-/* ---------- VISTA: Comparativa (plan vs PMR) ---------- */
+/* ---------- VISTA: Plan vs PMR (comparativa) ---------- */
 let _cmpMes = 0;
 let _cmpMetrica = 'prod';   // gráfica de la Comparativa: 'prod' (defecto) | 'veh'
 function viewCmp(v) {
@@ -1371,9 +1420,9 @@ function viewCmp(v) {
   const tiene = (pc.extVeh || []).some(x => x != null) || (pc.extProd || []).some(x => x != null);
   if (!tiene) {
     const box = el('div'); box.style.cssText = 'flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px';
-    const c = card('Comparativa plan vs PMR', activeCentro.toUpperCase() + ' · sin datos cargados');
+    const c = card('Plan vs PMR', activeCentro.toUpperCase() + ' · sin datos cargados');
     c.style.maxWidth = '560px';
-    c._b.appendChild(h('<div class="note">Exporta los turnos de PMR (CSV con <code>Origin, Shift, Shift Type, Service Date, Planned Columns, Workers…</code>), cárgalo con «Importar CSV» y pulsa «<b>Cargar en Comparativa</b>». Cada lado va con lo suyo: el <b>plan</b> con los vehículos que calcula mi motor, <b>PMR</b> con los vehículos reales del CSV. No recalcula ni toca el plan.</div>'));
+    c._b.appendChild(h('<div class="note">Exporta los turnos de PMR (CSV con <code>Origin, Shift, Shift Type, Service Date, Planned Columns, Workers…</code>), cárgalo con «Importar CSV» y pulsa «<b>Cargar en Plan vs PMR</b>». Cada lado va con lo suyo: el <b>plan</b> con los vehículos que calcula mi motor, <b>PMR</b> con los vehículos reales del CSV. No recalcula ni toca el plan.</div>'));
     const b = el('button', 'btn pri sm', 'Importar CSV'); b.style.marginTop = '12px'; b.addEventListener('click', () => $('#mCsv').classList.add('on'));
     c._b.appendChild(b);
     box.appendChild(c); v.appendChild(box); return;
@@ -1385,7 +1434,7 @@ function viewCmp(v) {
   const hint = el('span', null, (p.extMeta || '') + ' · Δ = PMR − plan'); hint.style.cssText = 'margin-left:auto;font-size:11px;color:var(--faint)';
   bar.appendChild(hint);
   const bDel = el('button', 'btn sm', 'Vaciar');
-  bDel.addEventListener('click', () => { if (!confirm('Borra los datos de PMR cargados en la Comparativa (todas las colmenas del plan ' + p.año + '). El plan no se toca. ¿Continuar?')) return; for (const cc of p.centros) { const x = p.porCentro[cc]; x.extProd = Array(x.cols.length).fill(null); x.extProdC = Array(x.cols.length).fill(null); x.extVeh = Array(x.cols.length).fill(null); x.extCols = Array(x.cols.length).fill(null); } delete p.extMeta; tocado(); });
+  bDel.addEventListener('click', () => { if (!confirm('Borra los datos de PMR cargados en Plan vs PMR (todas las colmenas del plan ' + p.año + '). El plan no se toca. ¿Continuar?')) return; for (const cc of p.centros) { const x = p.porCentro[cc]; x.extProd = Array(x.cols.length).fill(null); x.extProdC = Array(x.cols.length).fill(null); x.extVeh = Array(x.cols.length).fill(null); x.extCols = Array(x.cols.length).fill(null); } delete p.extMeta; tocado(); });
   bar.appendChild(bDel);
   v.appendChild(bar);
 
@@ -1523,11 +1572,11 @@ function viewGuia(v) {
 <h2>Qué editas (Parámetros)</h2>\
 <li>Máximo de <b>vehículos</b> por turno y mes: TM, TT <b>largas</b>, TT <b>cortas</b> y TP — el total de tarde es largas + cortas.</li>\
 <li>Productividad por mes de las rutas de 8 h — o sincronízala con «Importar CSV» desde PMR. Las cortas rinden siempre <b>prod × 6,5/7,5</b> (Carpeta Verde).</li>\
-<li>POM forzable (se edita en Mensual, y por día en Día a día), criterio TP, criterio Oferta SM y parrilla de carga con la <b>duración por tipo de ruta</b> (larga 8 h / corta 7 h, editables; dibujan el gantt de Oleadas).</li>\
+<li>POM forzable (grid «POM por mes» de Plan en vista AÑO, y por día con un mes elegido), criterio TP, criterio Oferta SM y parrilla de carga (en Oleadas) con la <b>duración por tipo de ruta</b> (larga 8 h / corta 7 h, editables; dibujan el gantt de Oleadas).</li>\
 <h2>Negocio vs Servido</h2>\
-<p>En <b>Día a día</b>, «<b>Editar rango</b>» aplica un valor (productividad, negocio, POM u Oferta SM) a un rango de fechas de golpe — para no ir día a día. Se ven las dos cosas: <b>Negocio</b> = las columnas que pide negocio (editable), y <b>Servido</b> = lo que la flota reparte de verdad = Σ (rutas × productividad). Las columnas por turno (Col TM/TT/TP) son <b>rutas × prod</b> y suman al Servido. Casi nunca cae exacto sobre Negocio: si negocio pide 100 y la productividad es 16,9, hacen falta 6 rutas (100÷16,9=5,9→6) y 6×16,9≈101 → se reparte 101, no 100. Se envían las rutas <b>necesarias para cubrir</b> cada turno mientras haya vehículos, así que la <b>Δ neg</b> suele ser holgura (+); solo sale − cuando los máximos se agotan de verdad. El <b>POM y la Oferta SM son editables por día</b> (vacío = el del mes / auto). Un día en <b>rojo</b> no cubre por <b>capacidad</b> (vehículos): en «Limita» ves qué turno agota su máximo («tope de vehículos» si es todo). El anillo y el banner resumen la cobertura por capacidad del periodo.</p>\
+<p>En <b>Plan</b>, «<b>Editar rango</b>» aplica un valor (productividad, negocio, POM u Oferta SM) a un rango de fechas de golpe — para no ir día a día. Se ven las dos cosas: <b>Negocio</b> = las columnas que pide negocio (editable), y <b>Servido</b> = lo que la flota reparte de verdad = Σ (rutas × productividad). Las columnas por turno (Col TM/TT/TP) son <b>rutas × prod</b> y suman al Servido. Casi nunca cae exacto sobre Negocio: si negocio pide 100 y la productividad es 16,9, hacen falta 6 rutas (100÷16,9=5,9→6) y 6×16,9≈101 → se reparte 101, no 100. Se envían las rutas <b>necesarias para cubrir</b> cada turno mientras haya vehículos, así que la <b>Δ neg</b> suele ser holgura (+); solo sale − cuando los máximos se agotan de verdad. El <b>POM y la Oferta SM son editables por día</b> (vacío = el del mes / auto). Un día en <b>rojo</b> no cubre por <b>capacidad</b> (vehículos): en «Limita» ves qué turno agota su máximo («tope de vehículos» si es todo). El anillo y el banner resumen la cobertura por capacidad del periodo.</p>\
 <h2>Datos</h2>\
-<p>Productividades del Excel 2026; columnas de la query 08/07/2026; máximos por turno derivados del Excel. «+ Año» crea 2027 copiando parámetros. «Importar CSV» detecta solo qué le pasas: el de <code>daily_business_offer</code> (columnas por día) o el export de turnos de PMR (Origin/Shift/...). Con este último puedes <b>Cargar en Comparativa</b> —se guarda con el plan y la pestaña <b>Comparativa</b> muestra el día a día plan vs PMR (vehículos por turno de cada lado, gráfico de Δ conmutable entre <b>vehículos</b> y <b>productividad</b>, filtro por mes y botón «Vaciar» para borrar lo cargado) sin tocar nada— o <b>Aplicar</b> para sincronizar el plan: productividades por día (la <b>configurada</b> del CSV —campo Productivity— ponderada por trabajadores de mañana+puente+tarde larga, así coincide con la query, p.ej. 16,75) y <b>máximos de vehículos por turno/mes</b> — se amplían al máximo de vehículos que PMR usó en el mes cuando superan las del plan (nunca se reducen solas). Todo se guarda en el navegador; usa Exportar para copia. La <b>nube (Supabase)</b> se configura en el propio código (constante <code>NUBE_CONFIG</code> al inicio del script: URL + clave anon): con eso, guarda automáticamente al editar (verás el ☁ iluminarse), siembra el documento la primera vez y, al abrir, si la nube va por delante se carga sola (la nube manda) — ideal con el HTML servido desde GitHub Pages.</p>\
+<p>Productividades del Excel 2026; columnas de la query 08/07/2026; máximos por turno derivados del Excel. «+ Año» crea 2027 copiando parámetros. «Importar CSV» detecta solo qué le pasas: el de <code>daily_business_offer</code> (columnas por día) o el export de turnos de PMR (Origin/Shift/...). Con este último puedes <b>Cargar en Plan vs PMR</b> —se guarda con el plan y la pestaña <b>Plan vs PMR</b> muestra el día a día plan vs PMR (vehículos por turno de cada lado, gráfico de Δ conmutable entre <b>vehículos</b> y <b>productividad</b>, filtro por mes y botón «Vaciar» para borrar lo cargado) sin tocar nada— o <b>Aplicar</b> para sincronizar el plan: productividades por día (la <b>configurada</b> del CSV —campo Productivity— ponderada por trabajadores de mañana+puente+tarde larga, así coincide con la query, p.ej. 16,75) y <b>máximos de vehículos por turno/mes</b> — se amplían al máximo de vehículos que PMR usó en el mes cuando superan las del plan (nunca se reducen solas). Todo se guarda en el navegador; usa Exportar para copia. La <b>nube (Supabase)</b> se configura en el propio código (constante <code>NUBE_CONFIG</code> al inicio del script: URL + clave anon): con eso, guarda automáticamente al editar (verás el ☁ iluminarse), siembra el documento la primera vez y, al abrir, si la nube va por delante se carga sola (la nube manda) — ideal con el HTML servido desde GitHub Pages.</p>\
 </div>'));
 }
 
@@ -1596,11 +1645,11 @@ function mostrarResumenCsv() {
     rr.appendChild(h('<label style="display:flex;gap:7px;align-items:center;font-size:12px"><input type="radio" name="prodScope" value="hoy" checked style="width:auto"> solo desde hoy (resto de año)</label>'));
     rr.appendChild(h('<label style="display:flex;gap:7px;align-items:center;font-size:12px"><input type="radio" name="prodScope" value="todo" style="width:auto"> todo el rango del CSV</label>'));
     t.appendChild(rr);
-    t.appendChild(el('div', 'note', 'El alcance de arriba solo afecta a «Aplicar». «Cargar en Comparativa» guarda todos los días del CSV para verlos en la pestaña Comparativa, sin tocar el plan.'));
+    t.appendChild(el('div', 'note', 'El alcance de arriba solo afecta a «Aplicar». «Cargar en Plan vs PMR» guarda todos los días del CSV para verlos en esa pestaña, sin tocar el plan.'));
     const acts = el('div'); acts.style.cssText = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap';
-    const bC = el('button', 'btn pri sm', 'Cargar en Comparativa (plan ' + p.año + ')'); bC.addEventListener('click', cargarProdComparativa);
+    const bC = el('button', 'btn pri sm', 'Cargar en Plan vs PMR (plan ' + p.año + ')'); bC.addEventListener('click', cargarProdComparativa);
     const bA = el('button', 'btn sm', 'Aplicar al plan ' + p.año);
-    bA.addEventListener('click', () => { const sc = (document.querySelector('input[name=prodScope]:checked') || {}).value === 'todo' ? 'todo el rango del CSV' : 'solo desde hoy'; if (confirm('Sobrescribe las productividades del plan ' + p.año + ' con las del CSV (' + sc + ') y AMPLÍA los máximos de vehículos por turno/mes cuando PMR usó más que el plan (nunca los reduce). Revisa antes la Comparativa si tienes dudas. ¿Continuar?')) aplicarProdCsv(); });
+    bA.addEventListener('click', () => { const sc = (document.querySelector('input[name=prodScope]:checked') || {}).value === 'todo' ? 'todo el rango del CSV' : 'solo desde hoy'; if (confirm('Sobrescribe las productividades del plan ' + p.año + ' con las del CSV (' + sc + ') y AMPLÍA los máximos de vehículos por turno/mes cuando PMR usó más que el plan (nunca los reduce). Revisa antes Plan vs PMR si tienes dudas. ¿Continuar?')) aplicarProdCsv(); });
     acts.append(bC, bA); t.appendChild(acts);
     const cmpOut = el('div'); cmpOut.id = 'cmpOut'; cmpOut.style.marginTop = '12px'; t.appendChild(cmpOut);
     box.appendChild(t);
@@ -1649,7 +1698,7 @@ function cargarProdComparativa() {
   p.extMeta = 'Cargado ' + hoyIso() + ' · ' + _stage.fmin + ' → ' + _stage.fmax;
   _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.remove('on');
   seccion = 'cmp'; renderSeg(); tocado();
-  toast('Comparativa cargada: ' + fmt0(n) + ' días · ' + tocadas.length + ' colmenas');
+  toast('Cargado en Plan vs PMR: ' + fmt0(n) + ' días · ' + tocadas.length + ' colmenas');
 }
 function aplicarProdCsv() {
   const p = plan(); const dias = diasDelAño(p.año); const idxDe = Object.fromEntries(dias.map((d, i) => [d, i]));
@@ -1736,6 +1785,10 @@ function initEventos() {
   $('#ncId').addEventListener('keydown', e => { if (e.key === 'Enter') $('#ncOk').click(); });
   $('#mColm').addEventListener('pointerdown', e => { if (e.target === $('#mColm')) $('#mColm').classList.remove('on'); });
   addEventListener('keydown', e => { if (e.key === 'Escape') { const abiertos = $$('.mbg.on'); if (abiertos.length) abiertos[abiertos.length - 1].classList.remove('on'); } });
+  $('#bGuia').addEventListener('click', () => { const b = $('#guiaBody'); if (!b.firstChild) viewGuia(b); $('#mGuia').classList.add('on'); });
+  $('#guiaClose').addEventListener('click', () => $('#mGuia').classList.remove('on'));
+  $('#mGuia').addEventListener('pointerdown', e => { if (e.target === $('#mGuia')) $('#mGuia').classList.remove('on'); });
+  addEventListener('pointerdown', e => { const dd = $('#ddCopia'); if (dd && dd.open && !dd.contains(e.target)) dd.open = false; });
   $('#bCsv').addEventListener('click', () => { _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.add('on'); });
   const cerrarCsv = () => { $('#mCsv').classList.remove('on'); const m = $('#mCsv').querySelector('.modal'); if (m) m.classList.remove('wide'); };
   $('#csvClose').addEventListener('click', cerrarCsv);
@@ -1745,8 +1798,8 @@ function initEventos() {
   dz.addEventListener('drop', async e => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) procesarCsv(await f.text()); });
   $('#fCsv').addEventListener('change', async e => { const f = e.target.files[0]; if (f) procesarCsv(await f.text()); e.target.value = ''; });
   $('#bParse').addEventListener('click', () => { const t = $('#csvPaste').value; if (!t.trim()) { toast('Pega el CSV'); return; } procesarCsv(t); });
-  $('#bExport').addEventListener('click', () => { const a = el('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' })); a.download = 'planificador_productividades.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Copia descargada'); });
-  $('#bImport').addEventListener('click', () => $('#fJson').click());
+  $('#bExport').addEventListener('click', () => { const a = el('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' })); a.download = 'planificador_productividades.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); $('#ddCopia').open = false; toast('Copia descargada'); });
+  $('#bImport').addEventListener('click', () => { $('#ddCopia').open = false; $('#fJson').click(); });
   $('#fJson').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; try { const nuevo = JSON.parse(await f.text()); if (!dbValida(nuevo)) throw new Error('copia no válida'); if (!confirm('Sustituir TODOS los planes por los del archivo?')) return; DB = nuevo; if (!DB.planes[DB.activo]) DB.activo = Object.keys(DB.planes).sort()[0]; migrarDB(DB); _stage = null; $('#csvRes').textContent = ''; if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0]; renderPlanSel(); guardar(); renderRail(); renderView(); toast('Copia restaurada'); } catch (err) { toast('⚠ ' + err.message); } e.target.value = ''; });
   addEventListener('beforeunload', () => { clearTimeout(_saveT); try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) {} });
   addEventListener('dragover', e => e.preventDefault()); addEventListener('drop', e => e.preventDefault());
