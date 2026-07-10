@@ -33,8 +33,10 @@ GitHub Pages y todos los equipos comparten datos.
    (que además viaja en el HTML): mantén el repositorio/clave dentro del equipo.
 
 Para aplicar un valor a muchos días de golpe (p. ej. productividad 16 del 1 al 15 de
-agosto), usa **Día a día → Editar rango**: campo, valor, desde/hasta, y opcionalmente
-solo días con columnas.
+agosto), usa la barra **Editar rango** de Día a día (justo debajo del gráfico):
+**arrastra sobre los días** para seleccionar el rango y aplica ahí el campo y el
+valor (opcionalmente solo a días con columnas). La tabla diaria sigue siendo
+editable celda a celda como siempre.
 
 ## El modelo (todo en columnas)
 

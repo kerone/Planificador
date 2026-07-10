@@ -150,6 +150,20 @@
   .field{display:flex;flex-direction:column;gap:5px}
   .field label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
   .field input,.field select{width:100%}
+  /* selector visual de rango (Día a día): barra de días arrastrable */
+  .rstrip{display:flex;gap:12px;overflow-x:auto;user-select:none;-webkit-user-select:none;padding:2px 2px 8px}
+  .rgrupo{flex:0 0 auto}
+  .rmes{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--faint);padding:0 0 4px 3px}
+  .rfila{display:flex;gap:1px}
+  .rcell{flex:0 0 auto;width:27px;text-align:center;border-radius:6px;padding:3px 0 4px;border:1px solid transparent;cursor:crosshair;touch-action:none}
+  .rcell .rd{font-size:8.5px;color:var(--faint)}
+  .rcell .rn{font-size:11px;font-family:var(--mono);color:var(--dim);line-height:1.45}
+  .rcell.we{background:rgba(255,255,255,.035)}
+  .rcell.off .rn{opacity:.4}
+  .rcell:hover{border-color:var(--border2)}
+  .rcell.sel{background:var(--accent-dim);border-color:var(--accent)}
+  .rcell.sel .rn{color:var(--text)}
+  .rcell.sel .rd{color:var(--accent)}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:1000px){.grid2{grid-template-columns:1fr}}
   .row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
@@ -671,7 +685,8 @@ const SECCIONES = [['dia','Día a día'],['mensual','Mensual'],['params','Parám
 let seccion = 'dia';
 let _diaMes = 0;          // 0 = año, 1..12 = mes (filtro Vista diaria)
 let _olFecha = null;
-let _rangoOpen = false;   // editor de rango (Día a día)
+let _rangoSel = null;                              // {a,b} índices de día seleccionados (barra de rango)
+let _rangoUI = { campo: 'prod', val: '', solo: true }; // últimos valores del editor de rango
 
 function covColor(pct) { return pct >= 99.9 ? 'var(--good)' : pct >= 95 ? 'var(--warn)' : 'var(--bad)'; }
 function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -879,6 +894,91 @@ function divBars(data, opts) {
   const w = el('div'); w.style.overflowX = 'auto'; w.appendChild(svg); return w;
 }
 
+/* ---------- selector visual de rango (Día a día) ---------- */
+function rangoCard(p, pc, rows) {
+  const dias = diasDelAño(p.año);
+  if (_rangoSel && (_rangoSel.b >= dias.length)) _rangoSel = null;   // selección de otro año/plan
+  const idxs = dias.map((d, i) => i).filter(i => _diaMes === 0 || mesDe(dias[i]) === _diaMes - 1);
+  const c = card('Editar rango', 'arrastra sobre los días para seleccionar; la tabla de abajo sigue siendo editable día a día');
+
+  // barra de días agrupada por mes
+  const strip = el('div', 'rstrip');
+  const celdas = new Map();
+  let mesAct = -1, fila = null;
+  for (const i of idxs) {
+    const f = dias[i], m = mesDe(f);
+    if (m !== mesAct) { mesAct = m; const g = el('div', 'rgrupo'); if (_diaMes === 0) g.appendChild(el('div', 'rmes', MESES[m])); fila = el('div', 'rfila'); g.appendChild(fila); strip.appendChild(g); }
+    const ds = dsem(f);
+    const cell = el('div', 'rcell' + (ds >= 5 ? ' we' : '') + (rows[i].cols > 0 ? '' : ' off'));
+    cell.dataset.i = i;
+    cell.appendChild(el('div', 'rd', DSEM[ds]));
+    cell.appendChild(el('div', 'rn', f.slice(8, 10)));
+    celdas.set(i, cell); fila.appendChild(cell);
+  }
+  c._b.appendChild(strip);
+
+  // editor: aparece al haber selección
+  const ed = el('div'); ed.style.cssText = 'display:none;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;padding-top:10px;border-top:1px solid var(--border)';
+  const info = el('div'); info.style.cssText = 'font-size:12.5px;font-weight:600;color:var(--text);padding-bottom:8px;min-width:200px';
+  const fld = (lbl, inp) => { const f = el('div', 'field'); f.appendChild(el('label', null, lbl)); f.appendChild(inp); return f; };
+  const selC = el('select'); for (const [val, t] of [['prod', 'Productividad'], ['cols', 'Negocio (columnas)'], ['pom', 'POM del día'], ['sm', 'Oferta SM']]) { const o = el('option', null, t); o.value = val; selC.appendChild(o); }
+  selC.value = _rangoUI.campo; selC.addEventListener('change', () => { _rangoUI.campo = selC.value; });
+  const iVal = el('input'); iVal.type = 'text'; iVal.style.width = '90px'; iVal.placeholder = 'valor'; iVal.value = _rangoUI.val;
+  iVal.addEventListener('input', () => { _rangoUI.val = iVal.value; });
+  const chkOp = el('input'); chkOp.type = 'checkbox'; chkOp.checked = _rangoUI.solo; chkOp.style.width = 'auto';
+  chkOp.addEventListener('change', () => { _rangoUI.solo = chkOp.checked; });
+  const lOp = el('label'); lOp.style.cssText = 'display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--dim);padding-bottom:8px'; lOp.append(chkOp, document.createTextNode('solo días con columnas'));
+  const bGo = el('button', 'btn pri sm', 'Aplicar'); bGo.style.marginBottom = '2px';
+  const bX = el('button', 'btn sm', 'Quitar selección'); bX.style.marginBottom = '2px';
+  ed.append(info, fld('Campo', selC), fld('Valor', iVal), lOp, bGo, bX);
+  ed.appendChild(el('span', 'note', 'POM y Oferta SM se aplican como override del día (bórralos dejando la celda vacía).'));
+  c._b.appendChild(ed);
+
+  const fFmt = i => dias[i].slice(8, 10) + '/' + dias[i].slice(5, 7);
+  const edRefresh = sel => {
+    if (!sel) { ed.style.display = 'none'; return; }
+    ed.style.display = 'flex';
+    const lo = Math.min(sel.a, sel.b), hi = Math.max(sel.a, sel.b);
+    let nOp = 0; for (let i = lo; i <= hi; i++) if (pc.cols[i] > 0) nOp++;
+    info.textContent = fFmt(lo) + ' → ' + fFmt(hi) + ' · ' + (hi - lo + 1) + ' días (' + nOp + ' con columnas)';
+  };
+  let drag = null;
+  const pinta = () => {
+    const sel = drag || _rangoSel;
+    const lo = sel ? Math.min(sel.a, sel.b) : -1, hi = sel ? Math.max(sel.a, sel.b) : -1;
+    for (const [i, cell] of celdas) cell.classList.toggle('sel', i >= lo && i <= hi);
+    edRefresh(sel);
+  };
+  const celdaDe = ev => { const t = document.elementFromPoint(ev.clientX, ev.clientY); const cc = t && t.closest ? t.closest('.rcell') : null; return (cc && cc.dataset.i != null) ? +cc.dataset.i : null; };
+  const fin = () => { if (!drag) return; _rangoSel = { a: Math.min(drag.a, drag.b), b: Math.max(drag.a, drag.b) }; drag = null; pinta(); };
+  strip.addEventListener('pointerdown', ev => {
+    const i = celdaDe(ev); if (i == null) return;
+    ev.preventDefault();
+    if (ev.target.hasPointerCapture && ev.target.hasPointerCapture(ev.pointerId)) ev.target.releasePointerCapture(ev.pointerId);
+    drag = { a: i, b: i }; pinta();
+    window.addEventListener('pointerup', fin, { once: true });
+  });
+  strip.addEventListener('pointermove', ev => { if (!drag) return; const i = celdaDe(ev); if (i != null && i !== drag.b) { drag.b = i; pinta(); } });
+
+  bX.addEventListener('click', () => { _rangoSel = null; pinta(); });
+  bGo.addEventListener('click', () => {
+    if (!_rangoSel) return;
+    const n = numES(iVal.value);
+    if (!isFinite(n) || n < 0) { toast('⚠ Valor no válido'); return; }
+    const campo = selC.value; let cnt = 0;
+    for (let i = _rangoSel.a; i <= _rangoSel.b; i++) {
+      if (chkOp.checked && !(pc.cols[i] > 0) && campo !== 'cols') continue;
+      if (campo === 'prod') { if (n > 0) { pc.prod[i] = n; cnt++; } }
+      else if (campo === 'cols') { pc.cols[i] = n; cnt++; }
+      else if (campo === 'pom') { pc.pomDia[i] = n; cnt++; }
+      else if (campo === 'sm') { pc.smOvr[i] = n; cnt++; }
+    }
+    tocado(); toast(selC.options[selC.selectedIndex].text + ' = ' + iVal.value + ' aplicado a ' + cnt + ' días');
+  });
+  pinta();   // restaura la selección tras re-render (p. ej. tras Aplicar)
+  return c;
+}
+
 /* ---------- VISTA: Día a día ---------- */
 function viewDia(v) {
   const p = plan(), pc = p.porCentro[activeCentro];
@@ -887,46 +987,9 @@ function viewDia(v) {
   // barra de filtro por mes (meses coloreados por productividad)
   const bar = el('div'); bar.style.cssText = 'padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0';
   bar.appendChild(mesesChips(pc, diasDelAño(p.año), _diaMes, v2 => { _diaMes = v2; renderView(); }));
-  const hint = el('span', null, 'Columnas, prod y Oferta SM editables por día'); hint.style.cssText = 'margin-left:auto;font-size:11px;color:var(--faint)';
+  const hint = el('span', null, 'Columnas, prod y Oferta SM editables por día · arrastra en la barra de días para editar un rango'); hint.style.cssText = 'margin-left:auto;font-size:11px;color:var(--faint)';
   bar.appendChild(hint);
-  const bRango = el('button', 'btn sm' + (_rangoOpen ? ' pri' : ''), 'Editar rango');
-  bRango.addEventListener('click', () => { _rangoOpen = !_rangoOpen; renderView(); });
-  bar.appendChild(bRango);
   v.appendChild(bar);
-
-  // editor de rango: aplicar un valor a varios días de golpe
-  if (_rangoOpen) {
-    const dias = diasDelAño(p.año);
-    const rb = el('div'); rb.style.cssText = 'padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;flex-shrink:0';
-    const fld = (lbl, inp) => { const f = el('div', 'field'); f.appendChild(el('label', null, lbl)); f.appendChild(inp); return f; };
-    const selC = el('select'); for (const [val, t] of [['prod', 'Productividad'], ['cols', 'Negocio (columnas)'], ['pom', 'POM del día'], ['sm', 'Oferta SM']]) { const o = el('option', null, t); o.value = val; selC.appendChild(o); }
-    const iVal = el('input'); iVal.type = 'text'; iVal.style.width = '90px'; iVal.placeholder = 'valor';
-    const mIni = _diaMes ? p.año + '-' + String(_diaMes).padStart(2, '0') : p.año + '-01';
-    const dIni = el('input'); dIni.type = 'date'; dIni.min = p.año + '-01-01'; dIni.max = p.año + '-12-31'; dIni.value = mIni + '-01';
-    const dFin = el('input'); dFin.type = 'date'; dFin.min = p.año + '-01-01'; dFin.max = p.año + '-12-31';
-    dFin.value = _diaMes ? dias.filter(d => mesDe(d) === _diaMes - 1).slice(-1)[0] : p.año + '-12-31';
-    const chkOp = el('input'); chkOp.type = 'checkbox'; chkOp.checked = true; chkOp.style.width = 'auto';
-    const lOp = el('label'); lOp.style.cssText = 'display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--dim);padding-bottom:8px'; lOp.append(chkOp, document.createTextNode('solo días con columnas'));
-    const bGo = el('button', 'btn pri sm', 'Aplicar al rango'); bGo.style.marginBottom = '2px';
-    bGo.addEventListener('click', () => {
-      const n = numES(iVal.value);
-      if (!isFinite(n) || n < 0) { toast('⚠ Valor no válido'); return; }
-      if (!dIni.value || !dFin.value || dIni.value > dFin.value) { toast('⚠ Rango de fechas no válido'); return; }
-      const campo = selC.value; let cnt = 0;
-      dias.forEach((d, i) => {
-        if (d < dIni.value || d > dFin.value) return;
-        if (chkOp.checked && !(pc.cols[i] > 0) && campo !== 'cols') return;
-        if (campo === 'prod') { if (n > 0) { pc.prod[i] = n; cnt++; } }
-        else if (campo === 'cols') { pc.cols[i] = n; cnt++; }
-        else if (campo === 'pom') { pc.pomDia[i] = n; cnt++; }
-        else if (campo === 'sm') { pc.smOvr[i] = n; cnt++; }
-      });
-      tocado(); toast(selC.options[selC.selectedIndex].text + ' = ' + iVal.value + ' aplicado a ' + cnt + ' días');
-    });
-    rb.append(fld('Campo', selC), fld('Valor', iVal), fld('Desde', dIni), fld('Hasta', dFin), lOp, bGo);
-    rb.appendChild(el('span', 'note', 'POM y Oferta SM se aplican como override del día (bórralos dejando la celda vacía).'));
-    v.appendChild(rb);
-  }
 
   const enMes = r => _diaMes === 0 || r.m === _diaMes - 1;
   const rowsF = rows.filter(enMes);
@@ -976,6 +1039,7 @@ function viewDia(v) {
   if (cd.length) cg._b.appendChild(stacked(cd, [{ key: 'tm', color: CT.tm }, { key: 'ttl', color: CT.ttl }, { key: 'ttc', color: CT.ttc }, { key: 'tp', color: CT.tp }], { h: 200, onClick: (i, d) => { if (_diaMes === 0) { _diaMes = d.mes + 1; renderView(); } else if (d.fecha) scrollFila('fd-' + d.fecha); } }));
   else cg._b.appendChild(el('div', 'note', 'Sin días operativos en el periodo.'));
   scroll.appendChild(cg);
+  scroll.appendChild(rangoCard(p, pc, rows));
 
   // tabla diaria
   const ct = card('Detalle diario', op.length + ' días con columnas');
