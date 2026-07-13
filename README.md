@@ -85,6 +85,7 @@ configura sus máximos por turno en Parámetros y carga sus columnas con el CSV.
 El menú lateral se lee como el flujo de trabajo — **Plan · Parámetros ·
 Oleadas · Plan vs PMR** — y la cabecera agrupa lo demás: **Importar CSV** (la
 operación frecuente), **Copia ▾** (descargar/restaurar el JSON de respaldo),
+— el año del plan se elige o se crea en el desplegable del chip **AÑO** —,
 **?** (la Guía, que se abre encima de donde estés) y el ☁ de la nube. Los
 **filtros de mes** (Plan / Plan vs PMR) van coloreados por la productividad
 media del mes: **verde = la más alta del año**, azul = la más baja (sin rojos:
@@ -107,8 +108,10 @@ cabecera y se abre como ventana sobre la vista actual.
 - Productividades por día 2026: del Excel «Productividades Reparto 2026».
 - Columnas por día 2026: foto de la query de negocio del 08/07/2026.
 - Máximos de vehículos por turno y mes: derivados del mismo Excel.
-- **+ Año** crea el 2027 copiando productividades y calles; las columnas se
-  dejan vacías (se cargan de la query), se copian o se copian escaladas +X %.
+- **AÑO ▾ → + Nuevo año…** (en la barra de meses) crea el 2027 copiando
+  productividades y máximos; las columnas se
+ dejan vacías (se cargan de la query), se copian o se copian escaladas +X %.
+  El año activo también se cambia desde ese desplegable.
   La copia de valores diarios (productividades y columnas) se alinea **por día de
   la semana**: cada día del año nuevo toma el día equivalente del base (lunes ↔
   lunes, ±3 días; en los bordes del año salta una semana), así el patrón semanal

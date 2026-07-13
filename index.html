@@ -221,8 +221,6 @@
     <div class="hgrow"></div>
     <div class="hactions">
       <span class="saved" id="saved">Guardado</span>
-      <select id="planSel" title="Año del plan"></select>
-      <button class="btn sm" id="bNuevo">+ Año</button>
       <button class="btn pri sm" id="bCsv">Importar CSV</button>
       <details class="ddown" id="ddCopia">
         <summary class="btn sm gho">Copia ▾</summary>
@@ -881,7 +879,24 @@ function mesesChips(pc, dias, sel, onClick) {
   const chips = el('div', 'chips');
   const prodMes = MESES.map((_, mi) => { let s = 0, n = 0; dias.forEach((d, i) => { if (mesDe(d) === mi) { s += pc.prod[i]; n++; } }); return n ? s / n : 0; });
   const mk = (val, t, plain) => { const b = el('button', 'chip' + (plain ? ' plain' : '') + (sel === val ? ' on' : ''), t); b.title = plain ? 'todo el año' : t + ': prod media ' + fmt2(prodMes[val - 1]); b.addEventListener('click', () => onClick(val)); return b; };
-  chips.appendChild(mk(0, 'AÑO ' + dias[0].slice(2, 4), true));
+  const bAno = mk(0, 'AÑO ' + dias[0].slice(2, 4), true);
+  bAno.style.borderTopRightRadius = '0'; bAno.style.borderBottomRightRadius = '0';
+  chips.appendChild(bAno);
+  // ▾ pegado al chip: cambiar de año o crear un plan nuevo (sin duplicar controles en la cabecera)
+  const dd = el('details', 'ddown');
+  const sum = el('summary', 'chip plain', '▾'); sum.title = 'cambiar de año · crear plan';
+  sum.style.cssText = 'border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-1px;padding:8px 10px;height:100%';
+  const panel = el('div', 'dd-panel'); panel.style.right = 'auto'; panel.style.left = '0';
+  for (const a of Object.keys(DB.planes).sort()) {
+    const b = el('button', 'btn sm' + (a === DB.activo ? ' pri' : ''), 'Plan ' + a);
+    b.addEventListener('click', () => { dd.open = false; cambiarPlan(a); });
+    panel.appendChild(b);
+  }
+  const bNv = el('button', 'btn sm', '+ Nuevo año…');
+  bNv.addEventListener('click', () => { dd.open = false; abrirNuevoAño(); });
+  panel.appendChild(bNv);
+  dd.append(sum, panel);
+  chips.appendChild(dd);
   chips.appendChild(el('span', 'vsep'));   // el AÑO (zoom global) se separa de los meses
   MESES.forEach((mm, i) => chips.appendChild(mk(i + 1, mm, false)));
   return chips;
@@ -1726,7 +1741,7 @@ function viewGuia(v) {
 <h2>Negocio vs Servido</h2>\
 <p>En <b>Plan</b>, «<b>Editar rango</b>» aplica un valor (productividad, negocio, POM u Oferta SM) a un rango de fechas de golpe — para no ir día a día. Se ven las dos cosas: <b>Negocio</b> = las columnas que pide negocio (editable), y <b>Servido</b> = lo que la flota reparte de verdad = Σ (rutas × productividad). Las columnas por turno (Col TM/TT/TP) son <b>rutas × prod</b> y suman al Servido. Casi nunca cae exacto sobre Negocio: si negocio pide 100 y la productividad es 16,9, hacen falta 6 rutas (100÷16,9=5,9→6) y 6×16,9≈101 → se reparte 101, no 100. Se envían las rutas <b>necesarias para cubrir</b> cada turno mientras haya vehículos, así que la <b>Dif</b> (servido − negocio) suele ser holgura (+); solo sale − cuando los máximos se agotan de verdad. El <b>POM y la Oferta SM son editables por día</b> (vacío = el del mes / auto). Un día en <b>rojo</b> es <b>KO</b>: lo servido se desvía de negocio más de la <b>tolerancia ±%</b> (Parámetros, 2 % por defecto), sea por defecto o por exceso. En «Limita» ves el motivo: el turno que agota su máximo («tope de vehículos» si es todo) o «exceso» si se reparte de más. El anillo y el banner resumen el periodo.</p>\
 <h2>Datos</h2>\
-<p>Productividades del Excel 2026; columnas de la query 08/07/2026; máximos por turno derivados del Excel. «+ Año» crea 2027 copiando parámetros. «Importar CSV» detecta solo qué le pasas: el de <code>daily_business_offer</code> (columnas por día) o el export de turnos de PMR (Origin/Shift/...). Con este último puedes <b>Cargar en Plan vs PMR</b> —se guarda con el plan y la pestaña <b>Plan vs PMR</b> muestra el día a día plan vs PMR (vehículos por turno de cada lado, gráfico de Δ conmutable entre <b>vehículos</b> y <b>productividad</b>, filtro por mes y botón «Vaciar» para borrar lo cargado) sin tocar nada— o <b>Aplicar</b> para sincronizar el plan: productividades por día (la <b>configurada</b> del CSV —campo Productivity— ponderada por trabajadores de mañana+puente+tarde larga, así coincide con la query, p.ej. 16,75) y <b>máximos de vehículos por turno/mes</b> — se amplían al máximo de vehículos que PMR usó en el mes cuando superan las del plan (nunca se reducen solas). Todo se guarda en el navegador; usa Exportar para copia. La <b>nube (Supabase)</b> se configura en el propio código (constante <code>NUBE_CONFIG</code> al inicio del script: URL + clave anon): con eso, guarda automáticamente al editar (verás el ☁ iluminarse), siembra el documento la primera vez y, al abrir, si la nube va por delante se carga sola (la nube manda) — ideal con el HTML servido desde GitHub Pages.</p>\
+<p>Productividades del Excel 2026; columnas de la query 08/07/2026; máximos por turno derivados del Excel. «AÑO ▾ → + Nuevo año» (en la barra de meses) crea 2027 copiando parámetros. «Importar CSV» detecta solo qué le pasas: el de <code>daily_business_offer</code> (columnas por día) o el export de turnos de PMR (Origin/Shift/...). Con este último puedes <b>Cargar en Plan vs PMR</b> —se guarda con el plan y la pestaña <b>Plan vs PMR</b> muestra el día a día plan vs PMR (vehículos por turno de cada lado, gráfico de Δ conmutable entre <b>vehículos</b> y <b>productividad</b>, filtro por mes y botón «Vaciar» para borrar lo cargado) sin tocar nada— o <b>Aplicar</b> para sincronizar el plan: productividades por día (la <b>configurada</b> del CSV —campo Productivity— ponderada por trabajadores de mañana+puente+tarde larga, así coincide con la query, p.ej. 16,75) y <b>máximos de vehículos por turno/mes</b> — se amplían al máximo de vehículos que PMR usó en el mes cuando superan las del plan (nunca se reducen solas). Todo se guarda en el navegador; usa Exportar para copia. La <b>nube (Supabase)</b> se configura en el propio código (constante <code>NUBE_CONFIG</code> al inicio del script: URL + clave anon): con eso, guarda automáticamente al editar (verás el ☁ iluminarse), siembra el documento la primera vez y, al abrir, si la nube va por delante se carga sola (la nube manda) — ideal con el HTML servido desde GitHub Pages.</p>\
 </div>'));
 }
 
@@ -1893,7 +1908,7 @@ function procesarCsv(txt) {
     mostrarResumenCsv();
   } catch (e) { toast('⚠ ' + e.message); $('#csvRes').textContent = ''; }
 }
-function renderPlanSel() { const sel = $('#planSel'); sel.textContent = ''; for (const a of Object.keys(DB.planes).sort()) { const o = el('option', null, a); o.value = a; sel.appendChild(o); } sel.value = DB.activo; }
+function renderPlanSel() { /* el año se elige en el desplegable del chip AÑO (barra de meses) */ }
 function crearPlan(año, baseAño, modo, pct) {
   const base = DB.planes[baseAño]; const p = planVacio(año, base.centros); const diasN = diasDelAño(año), diasB = diasDelAño(base.año); const factor = modo === 'escalar' ? 1 + (pct || 0) / 100 : 1;
   // copia alineada por día de la semana (lunes ↔ lunes): cada día del año
@@ -1924,9 +1939,19 @@ function crearColmena(id, color, todos) {
   toast('Colmena ' + id.toUpperCase() + ' creada — configura máximos por turno y parrilla, y carga columnas con el CSV');
   return true;
 }
+function abrirNuevoAño() {
+  const años = Object.keys(DB.planes).sort();
+  $('#npAno').value = parseInt(años[años.length - 1], 10) + 1;
+  const nb = $('#npBase'); nb.textContent = '';
+  for (const a of años) { const o = el('option', null, 'Plan ' + a); o.value = a; nb.appendChild(o); }
+  nb.value = DB.activo; $('#mNuevo').classList.add('on');
+}
+function cambiarPlan(a) {
+  if (a === DB.activo) return;
+  DB.activo = a; if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0];
+  _stage = null; guardar(); renderRail(); renderView();
+}
 function initEventos() {
-  $('#planSel').addEventListener('change', e => { DB.activo = e.target.value; if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0]; _stage = null; guardar(); renderRail(); renderView(); });
-  $('#bNuevo').addEventListener('click', () => { const años = Object.keys(DB.planes).sort(); $('#npAno').value = parseInt(años[años.length - 1], 10) + 1; const nb = $('#npBase'); nb.textContent = ''; for (const a of años) { const o = el('option', null, 'Plan ' + a); o.value = a; nb.appendChild(o); } nb.value = DB.activo; $('#mNuevo').classList.add('on'); });
   $('#npCancel').addEventListener('click', () => $('#mNuevo').classList.remove('on'));
   $('#mNuevo').addEventListener('pointerdown', e => { if (e.target === $('#mNuevo')) $('#mNuevo').classList.remove('on'); });
   $('#npOk').addEventListener('click', () => { const año = parseInt($('#npAno').value, 10); if (!año || año < 2024 || año > 2100) { toast('Año no válido'); return; } if (DB.planes[String(año)] && !confirm('Ya existe el plan ' + año + '. ¿Sobrescribir?')) return; crearPlan(año, $('#npBase').value, document.querySelector('input[name=npCols]:checked').value, parseFloat($('#npPct').value) || 0); $('#mNuevo').classList.remove('on'); });
@@ -1938,7 +1963,7 @@ function initEventos() {
   $('#bGuia').addEventListener('click', () => { const b = $('#guiaBody'); if (!b.firstChild) viewGuia(b); $('#mGuia').classList.add('on'); });
   $('#guiaClose').addEventListener('click', () => $('#mGuia').classList.remove('on'));
   $('#mGuia').addEventListener('pointerdown', e => { if (e.target === $('#mGuia')) $('#mGuia').classList.remove('on'); });
-  addEventListener('pointerdown', e => { const dd = $('#ddCopia'); if (dd && dd.open && !dd.contains(e.target)) dd.open = false; });
+  addEventListener('pointerdown', e => { $$('.ddown[open]').forEach(dd => { if (!dd.contains(e.target)) dd.open = false; }); });
   $('#bCsv').addEventListener('click', () => { _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.add('on'); });
   const cerrarCsv = () => { $('#mCsv').classList.remove('on'); const m = $('#mCsv').querySelector('.modal'); if (m) m.classList.remove('wide'); };
   $('#csvClose').addEventListener('click', cerrarCsv);
