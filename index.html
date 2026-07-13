@@ -776,7 +776,7 @@ function renderRail() {
     const meta = el('span', 'cm');
     meta.innerHTML = '<span class="cpom">' + fmt0(pomMax) + '</span>' + (ko ? '<span style="color:var(--bad)">' + ko + ' KO</span>' : '<span style="color:var(--good)">OK</span>');
     b.appendChild(meta);
-    b.addEventListener('click', () => { activeCentro = c; renderRail(); renderView(); });
+    b.addEventListener('click', () => { activeCentro = c; renderRail(); rerender(); });
     rail.appendChild(b);
   }
   const add = el('button', 'colm add', '+'); add.title = 'Añadir colmena';
@@ -1015,19 +1015,27 @@ function lineChart(series, opts) {
     }
     const xStep = Math.max(1, Math.ceil(n * 26 / pw));
     const etiquetas = series.length <= 2 && pw / n >= 34;   // valores sobre los puntos si caben
+    const grupos = [];   // un <g> por serie, para poder resaltar la más cercana al cursor
     series.forEach((s, si) => {
+      const g = sv('g', {}); g.style.transition = 'opacity .12s';
       let d = '', prev = false;
       s.vals.forEach((pt, i) => { if (!pt || pt.v == null) { prev = false; return; } d += (prev ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(pt.v).toFixed(1); prev = true; });
-      if (d) svg.appendChild(sv('path', { d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      if (d) g.appendChild(sv('path', { d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
       s.vals.forEach((pt, i) => {
         if (!pt || pt.v == null) return;
-        svg.appendChild(sv('circle', { cx: X(i), cy: Y(pt.v), r: 3.5, fill: 'var(--surface)', stroke: s.color, 'stroke-width': 2 }));
+        g.appendChild(sv('circle', { cx: X(i), cy: Y(pt.v), r: 3.5, fill: 'var(--surface)', stroke: s.color, 'stroke-width': 2 }));
         if (etiquetas) {
           const arriba = si === 0;
           const tt = sv('text', { x: X(i), y: Y(pt.v) + (arriba ? -9 : 15), 'text-anchor': 'middle', fill: 'var(--text)', 'font-size': 10, 'font-weight': 700, 'font-family': 'var(--mono)' });
-          tt.textContent = fmt2(pt.v); svg.appendChild(tt);
+          tt.textContent = fmt2(pt.v); g.appendChild(tt);
         }
       });
+      grupos.push(g); svg.appendChild(g);
+    });
+    // acercar el cursor a una línea la ilumina y atenúa el resto (estilo Metabase)
+    const resalta = si => grupos.forEach((g, i) => {
+      g.style.opacity = (si == null || i === si) ? '1' : '.22';
+      const pth = g.querySelector('path'); if (pth) pth.setAttribute('stroke-width', si != null && i === si ? 3 : 2);
     });
     for (let i = 0; i < n; i++) {
       const pt0 = series.map(s => s.vals[i]).find(pt => pt && pt.x != null);
@@ -1036,7 +1044,16 @@ function lineChart(series, opts) {
       if (!filas.length) continue;
       const tip = '<b>' + (pt0 ? pt0.x : '') + '</b><br>' + filas.join('<br>') + (opts.onClick ? '<br><span style="color:var(--faint)">clic → ver el mes</span>' : '');
       const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = opts.onClick ? 'pointer' : 'default';
-      hit.addEventListener('pointermove', ev => tipShow(ev.clientX, ev.clientY, tip)); hit.addEventListener('pointerleave', tipHide);
+      hit.addEventListener('pointermove', ev => {
+        if (series.length > 1) {
+          const py = ev.clientY - svg.getBoundingClientRect().top;
+          let mejor = null, dist = 30;
+          series.forEach((s, si) => { const pt = s.vals[i]; if (!pt || pt.v == null) return; const dd = Math.abs(Y(pt.v) - py); if (dd < dist) { dist = dd; mejor = si; } });
+          resalta(mejor);
+        }
+        tipShow(ev.clientX, ev.clientY, tip);
+      });
+      hit.addEventListener('pointerleave', () => { resalta(null); tipHide(); });
       if (opts.onClick) hit.addEventListener('click', () => opts.onClick(i));
       svg.appendChild(hit);
     }
