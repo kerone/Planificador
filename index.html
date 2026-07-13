@@ -114,7 +114,9 @@
   .chip:hover{border-color:var(--border2);color:var(--text)}
   .chip.on{background:var(--elevated);border-color:var(--accent);color:var(--text)}
   .chip.plain::before{display:none}
-  .chip.plain.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+  .chip.plain{font-weight:700;letter-spacing:.04em;padding:8px 16px}
+  .chip.plain.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .vsep{width:1px;align-self:stretch;background:var(--border2);margin:3px 6px;flex-shrink:0}
 
   /* TABLE */
   .twrap{overflow:auto}
@@ -887,6 +889,7 @@ function mesesChips(pc, dias, sel, onClick) {
   const act = prodMes.filter(x => x > 0); const minP = act.length ? Math.min(...act) : 0, maxP = act.length ? Math.max(...act) : 0;
   const mk = (val, t, plain, col) => { const b = el('button', 'chip' + (plain ? ' plain' : '') + (sel === val ? ' on' : ''), t); if (col) b.style.setProperty('--pc', col); b.title = plain ? 'todo el año' : t + ': prod media ' + fmt2(prodMes[val - 1]); b.addEventListener('click', () => onClick(val)); return b; };
   chips.appendChild(mk(0, 'AÑO', true));
+  chips.appendChild(el('span', 'vsep'));   // el AÑO (zoom global) se separa de los meses
   MESES.forEach((mm, i) => chips.appendChild(mk(i + 1, mm, false, prodColor(prodMes[i], minP, maxP))));
   return chips;
 }
