@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0c11; --surface:#12151d; --surface2:#171b25; --elevated:#1d222e;
+    --bg:#090b10; --surface:#161b26; --surface2:#1c2230; --elevated:#242b3b;
     --border:#262e3b; --border2:#39445a; --line:#1e2532;
     --text:#eef1f7; --dim:#aab4c8; --faint:#707b90;
     --accent:#5b8cff; --accent-dim:rgba(91,140,255,.14);
@@ -79,7 +79,7 @@
   .view.flush{padding:0;display:flex;flex-direction:column;overflow:hidden}
 
   /* CARDS */
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;transition:border-color .15s}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;transition:border-color .15s;box-shadow:0 1px 2px rgba(0,0,0,.25),0 3px 10px rgba(0,0,0,.18)}
   .card:hover{border-color:var(--border2)}
   .card-h{padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
   .card-t{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--text)}
