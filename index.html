@@ -809,15 +809,18 @@ function renderView() {
   else if (seccion === 'oleadas') viewOleadas(v);
   else if (seccion === 'cmp') viewCmp(v);
 }
-function tocado() {
-  guardar();
-  // preservar TODOS los scrolls (vista, .vscroll y tablas .twrap) al re-renderizar
+// re-pinta la vista CONSERVANDO todos los scrolls (vista, .vscroll y tablas .twrap)
+function rerender() {
   const v = $('#view');
   const sTop = v.scrollTop;
   const pos = [...v.querySelectorAll('.vscroll, .twrap')].map(e => [e.scrollTop, e.scrollLeft]);
-  renderRail(); renderView();
+  renderView();
   const v2 = $('#view'); v2.scrollTop = sTop;
   [...v2.querySelectorAll('.vscroll, .twrap')].forEach((e, i) => { if (pos[i]) { e.scrollTop = pos[i][0]; e.scrollLeft = pos[i][1]; } });
+}
+function tocado() {
+  guardar();
+  renderRail(); rerender();
 }
 // clic en una barra → llevar a la fila de ese día en la tabla (con destello)
 function scrollFila(id) {
@@ -1140,6 +1143,7 @@ function prodSerie(pl, c) {
 }
 function prodCard(p) {
   const años = Object.keys(DB.planes).sort();
+  if (_prodCfg.base !== DB.activo) { _prodCfg.base = DB.activo; _prodCfg.sel = null; }   // por defecto: el año activo
   if (!Array.isArray(_prodCfg.sel)) _prodCfg.sel = null;
   _prodCfg.sel = (_prodCfg.sel || [DB.activo]).filter(a => DB.planes[a]);
   if (!_prodCfg.sel.length) _prodCfg.sel = [DB.activo];
@@ -1149,7 +1153,7 @@ function prodCard(p) {
   const sw = el('div'); sw.style.cssText = 'margin-left:auto;display:flex;gap:6px';
   for (const [k, t] of [['años', 'Años'], ['red', 'Colmenas']]) {
     const b = el('button', 'btn sm' + (_prodCfg.modo === k ? ' pri' : ''), t);
-    b.addEventListener('click', () => { _prodCfg.modo = k; renderView(); });
+    b.addEventListener('click', () => { _prodCfg.modo = k; rerender(); });
     sw.appendChild(b);
   }
   c.children[0].appendChild(sw);
@@ -1164,7 +1168,7 @@ function prodCard(p) {
       for (const a of años) {
         const on = _prodCfg.sel.includes(a);
         const b = el('button', 'chip plain' + (on ? ' on' : ''), a); b.title = on ? 'quitar del gráfico' : 'añadir al gráfico';
-        b.addEventListener('click', () => { _prodCfg.sel = on ? _prodCfg.sel.filter(x => x !== a) : [..._prodCfg.sel, a].sort(); if (!_prodCfg.sel.length) _prodCfg.sel = [a]; renderView(); });
+        b.addEventListener('click', () => { _prodCfg.sel = on ? _prodCfg.sel.filter(x => x !== a) : [..._prodCfg.sel, a].sort(); if (!_prodCfg.sel.length) _prodCfg.sel = [a]; rerender(); });
         ys.appendChild(b);
       }
       c._b.appendChild(ys);
@@ -1613,7 +1617,7 @@ function viewCmp(v) {
   const swm = el('div'); swm.style.cssText = 'margin-left:auto;display:flex;gap:6px';
   for (const [k, t] of [['veh', 'Vehículos'], ['prod', 'Productividad']]) {
     const b = el('button', 'btn sm' + (_cmpMetrica === k ? ' pri' : ''), t);
-    b.addEventListener('click', () => { _cmpMetrica = k; renderView(); });
+    b.addEventListener('click', () => { _cmpMetrica = k; rerender(); });
     swm.appendChild(b);
   }
   cg.children[0].appendChild(swm);
