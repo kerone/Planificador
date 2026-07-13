@@ -1299,7 +1299,8 @@ function tablaDia(pc, rowsF, rowsAll) {
     tdFa.title = sin ? '' : 'servido − negocio = ' + (dNeg > 0 ? '+' : '') + fmt0(dNeg) + ' (' + (r.cols > 0 ? (dNeg / r.cols * 100).toFixed(1) : '0') + '%) · KO si supera ' + tolTxt;
     tr.appendChild(tdFa);
     const repCob = r.cols > 0 ? r.reparto / r.cols * 100 : 100;
-    const tdPc = el('td'); if (!sin) { const ok = repCob >= 99.95, pill = el('span', 'pill ' + (ok ? 'ok' : repCob >= 95 ? 'warn' : 'no'), ok ? '100%' : repCob.toFixed(1) + '%'); pill.title = 'reparto ' + fmt0(r.reparto) + ' / negocio ' + fmt0(r.cols); tdPc.appendChild(pill); } else tdPc.textContent = '—'; tr.appendChild(tdPc);
+    // % EXACTO (1 decimal), también por encima de 100; el color sigue la tolerancia KO
+    const tdPc = el('td'); if (!sin) { const pill = el('span', 'pill ' + (r.ko ? 'no' : 'ok'), nf1.format(Math.round(repCob * 10) / 10) + '%'); pill.title = 'reparto ' + fmt0(r.reparto) + ' / negocio ' + fmt0(r.cols) + ' · KO fuera de ±' + (pc.tolKO > 0 ? pc.tolKO : 2) + '%'; tdPc.appendChild(pill); } else tdPc.textContent = '—'; tr.appendChild(tdPc);
     // rutas
     tr.appendChild(el('td', 'grp', sin ? '—' : fmt0(r.vehTM)));
     const tdL = el('td', null, sin ? '—' : fmt0(r.rutasTTL)); tdL.style.color = CT.ttl; tdL.title = sin ? '' : fmt0(r.rutasTTL) + ' de ' + fmt0(r.largasTT) + ' largas máx'; tr.appendChild(tdL);
