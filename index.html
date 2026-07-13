@@ -746,6 +746,7 @@ const SECCIONES = [['dia','Plan'],['params','Parámetros'],['oleadas','Oleadas']
 let seccion = 'dia';
 let _diaMes = 0;          // 0 = año, 1..12 = mes (filtro Vista diaria)
 let _olFecha = null;
+let _prodCfg = { modo: 'años', sel: null };        // gráfica Productividad: comparar años o colmenas
 let _rangoSel = null;                              // {a,b} índices de día seleccionados (barra de rango)
 let _rangoUI = { campo: 'prod', val: '', solo: true }; // últimos valores del editor de rango
 
@@ -980,6 +981,58 @@ function divBars(data, opts) {
   }, opts.h || 190);
 }
 
+// líneas con puntos huecos y valor sobre cada punto (estilo Metabase);
+// varias series → comparar años o colmenas. Eje Y ajustado al rango (no desde 0).
+function lineChart(series, opts) {
+  opts = opts || {};
+  return chartBox(W => {
+    const H = opts.h || 240, mL = 52, mR = 18, mT = 18, mB = 26;
+    const pw = W - mL - mR, ph = H - mT - mB;
+    const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H });
+    svg.style.display = 'block';
+    const all = series.flatMap(s => s.vals.map(pt => pt && pt.v)).filter(v => v != null && isFinite(v));
+    if (!all.length) return svg;
+    let ymin = Math.min(...all), ymax = Math.max(...all);
+    const pad = Math.max((ymax - ymin) * 0.28, 0.25); ymin -= pad; ymax += pad;
+    const n = Math.max(...series.map(s => s.vals.length));
+    const X = i => mL + pw * (i + 0.5) / n;
+    const Y = v => mT + ph - (v - ymin) / (ymax - ymin) * ph;
+    for (let g = 0; g <= 4; g++) {
+      const vv = ymin + (ymax - ymin) * g / 4, yy = Y(vv);
+      svg.appendChild(sv('line', { x1: mL, x2: W - mR, y1: yy, y2: yy, stroke: 'var(--line)', 'stroke-width': 1, 'stroke-dasharray': '3 3' }));
+      const tx = sv('text', { x: mL - 7, y: yy + 3.5, 'text-anchor': 'end', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); tx.textContent = fmt2(vv); svg.appendChild(tx);
+    }
+    const xStep = Math.max(1, Math.ceil(n * 26 / pw));
+    const etiquetas = series.length <= 2 && pw / n >= 34;   // valores sobre los puntos si caben
+    series.forEach((s, si) => {
+      let d = '', prev = false;
+      s.vals.forEach((pt, i) => { if (!pt || pt.v == null) { prev = false; return; } d += (prev ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(pt.v).toFixed(1); prev = true; });
+      if (d) svg.appendChild(sv('path', { d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      s.vals.forEach((pt, i) => {
+        if (!pt || pt.v == null) return;
+        svg.appendChild(sv('circle', { cx: X(i), cy: Y(pt.v), r: 3.5, fill: 'var(--surface)', stroke: s.color, 'stroke-width': 2 }));
+        if (etiquetas) {
+          const arriba = si === 0;
+          const tt = sv('text', { x: X(i), y: Y(pt.v) + (arriba ? -9 : 15), 'text-anchor': 'middle', fill: 'var(--text)', 'font-size': 10, 'font-weight': 700, 'font-family': 'var(--mono)' });
+          tt.textContent = fmt2(pt.v); svg.appendChild(tt);
+        }
+      });
+    });
+    for (let i = 0; i < n; i++) {
+      const pt0 = series.map(s => s.vals[i]).find(pt => pt && pt.x != null);
+      if (pt0 && i % xStep === 0) { const xt = sv('text', { x: X(i), y: H - 7, 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); xt.textContent = pt0.x; svg.appendChild(xt); }
+      const filas = series.map(s => { const pt = s.vals[i]; return (pt && pt.v != null) ? '<span style="color:' + s.color + '">●</span> ' + s.nombre + ': <b>' + fmt2(pt.v) + '</b>' : null; }).filter(Boolean);
+      if (!filas.length) continue;
+      const tip = '<b>' + (pt0 ? pt0.x : '') + '</b><br>' + filas.join('<br>') + (opts.onClick ? '<br><span style="color:var(--faint)">clic → ver el mes</span>' : '');
+      const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = opts.onClick ? 'pointer' : 'default';
+      hit.addEventListener('pointermove', ev => tipShow(ev.clientX, ev.clientY, tip)); hit.addEventListener('pointerleave', tipHide);
+      if (opts.onClick) hit.addEventListener('click', () => opts.onClick(i));
+      svg.appendChild(hit);
+    }
+    return svg;
+  }, opts.h || 240);
+}
+
 /* ---------- selector visual de rango (Día a día) ---------- */
 function rangoCard(p, pc, rows) {
   const dias = diasDelAño(p.año);
@@ -1068,6 +1121,58 @@ function rangoCard(p, pc, rows) {
   return c;
 }
 
+/* gráfica Productividad (Plan): media mensual con AÑO, día a día con un mes; compara años o colmenas */
+function prodSerie(pl, c) {
+  const pc = pl && pl.porCentro[c]; if (!pc) return null;
+  const dias = diasDelAño(pl.año);
+  if (_diaMes === 0) {
+    const sum = Array(12).fill(0), nn = Array(12).fill(0);
+    dias.forEach((d, i) => { if (pc.prod[i] > 0) { const m = mesDe(d); sum[m] += pc.prod[i]; nn[m]++; } });
+    return MESES.map((mm, m) => ({ x: mm, v: nn[m] ? Math.round(sum[m] / nn[m] * 100) / 100 : null }));
+  }
+  return dias.map((d, i) => ({ d, i })).filter(o => mesDe(o.d) === _diaMes - 1)
+    .map(o => ({ x: o.d.slice(8, 10), v: pc.prod[o.i] > 0 ? pc.prod[o.i] : null }));
+}
+function prodCard(p) {
+  const años = Object.keys(DB.planes).sort();
+  if (!Array.isArray(_prodCfg.sel)) _prodCfg.sel = null;
+  _prodCfg.sel = (_prodCfg.sel || [DB.activo]).filter(a => DB.planes[a]);
+  if (!_prodCfg.sel.length) _prodCfg.sel = [DB.activo];
+  const esRed = _prodCfg.modo === 'red';
+  const periodo = _diaMes ? MESES_L[_diaMes - 1] + ' · día a día' : 'media mensual';
+  const c = card('Productividad', (esRed ? 'todas las colmenas · plan ' + p.año : activeCentro.toUpperCase() + (años.length > 1 ? ' · elige los años a comparar' : '')) + ' · ' + periodo, 'columnas/ruta');
+  const sw = el('div'); sw.style.cssText = 'margin-left:auto;display:flex;gap:6px';
+  for (const [k, t] of [['años', 'Años'], ['red', 'Colmenas']]) {
+    const b = el('button', 'btn sm' + (_prodCfg.modo === k ? ' pri' : ''), t);
+    b.addEventListener('click', () => { _prodCfg.modo = k; renderView(); });
+    sw.appendChild(b);
+  }
+  c.children[0].appendChild(sw);
+  const YCOL = ['#5b8cff', '#a78bfa', '#2dd4bf', '#fbbf24', '#f472b6', '#94a3b8'];
+  let series;
+  if (esRed) {
+    series = p.centros.map(cc => ({ nombre: cc.toUpperCase(), color: colmColor(cc), vals: prodSerie(p, cc) }))
+      .filter(s => s.vals && s.vals.some(pt => pt.v != null));
+  } else {
+    if (años.length > 1) {
+      const ys = el('div'); ys.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px';
+      for (const a of años) {
+        const on = _prodCfg.sel.includes(a);
+        const b = el('button', 'chip plain' + (on ? ' on' : ''), a); b.title = on ? 'quitar del gráfico' : 'añadir al gráfico';
+        b.addEventListener('click', () => { _prodCfg.sel = on ? _prodCfg.sel.filter(x => x !== a) : [..._prodCfg.sel, a].sort(); if (!_prodCfg.sel.length) _prodCfg.sel = [a]; renderView(); });
+        ys.appendChild(b);
+      }
+      c._b.appendChild(ys);
+    }
+    series = _prodCfg.sel.map((a, i) => ({ nombre: a, color: YCOL[i % YCOL.length], vals: prodSerie(DB.planes[a], activeCentro) }))
+      .filter(s => s.vals && s.vals.some(pt => pt.v != null));
+  }
+  if (series.length > 1) c._b.appendChild(legend(series.map(s => ({ c: s.color, t: s.nombre }))));
+  if (series.length) c._b.appendChild(lineChart(series, { h: 240, onClick: _diaMes === 0 ? i => { _diaMes = i + 1; renderView(); } : null }));
+  else c._b.appendChild(el('div', 'note', 'Sin productividades en el periodo' + (esRed ? '' : ' (¿la colmena existe en esos años?)') + '.'));
+  return c;
+}
+
 /* ---------- VISTA: Plan (día a día + nivel mensual con el chip AÑO) ---------- */
 function viewDia(v) {
   const p = plan(), pc = p.porCentro[activeCentro];
@@ -1129,6 +1234,7 @@ function viewDia(v) {
   else cg._b.appendChild(el('div', 'note', 'Sin días operativos en el periodo.'));
   scroll.appendChild(cg);
   scroll.appendChild(rangoCard(p, pc, rows));
+  scroll.appendChild(prodCard(p));
   // con AÑO seleccionado, Plan muestra también el nivel mensual (antes sección «Mensual»)
   if (_diaMes === 0) bloquesMensuales(scroll);
 
