@@ -1246,8 +1246,8 @@ function viewDia(v) {
   scroll.appendChild(cov);
 
   // gráfico de rutas
-  const cg = card('Rutas por ' + (_diaMes ? 'día' : 'mes'), _diaMes ? MESES_L[_diaMes - 1] : 'media/día operativo · el nº sobre cada barra = vehículos máx del mes', 'vehículos');
-  cg._b.appendChild(legend([{ c: CT.tm, t: 'TM' }, { c: CT.ttl, t: 'TT largas' }, { c: CT.ttc, t: 'TT cortas' }, { c: CT.tp, t: 'TP' }, { line: 1, t: 'máx vehículos' }, { c: CT.bad, t: 'día KO' }]));
+  const cg = card('Rutas por ' + (_diaMes ? 'día' : 'mes'), _diaMes ? MESES_L[_diaMes - 1] + ' · la línea discontinua = pico de flota del día (máx(TM, TT) + TP)' : 'media/día operativo · nº sobre la barra = vehículos MÁX del mes · línea discontinua = pico MEDIO de flota/día', 'vehículos');
+  cg._b.appendChild(legend([{ c: CT.tm, t: 'TM' }, { c: CT.ttl, t: 'TT largas' }, { c: CT.ttc, t: 'TT cortas' }, { c: CT.tp, t: 'TP' }, { line: 1, t: _diaMes === 0 ? 'pico medio de flota/día' : 'pico de flota del día' }, { c: CT.bad, t: 'día KO' }]));
   let cd;
   if (_diaMes === 0) {
     cd = MESES.map((mm, mi) => {
@@ -1257,7 +1257,7 @@ function viewDia(v) {
       const tm = avg(r => r.vehTM), ttl = avg(r => r.rutasTTL), ttc = avg(r => r.rutasTTC), tp = avg(r => r.vehTP);
       const nk = rm.filter(r => r.ko).length;
       const vMax = rm.length ? Math.max(...rm.map(r => r.veh)) : 0;
-      return { x: mm, mes: mi, cap: capm, alert: nk > 0, top: rm.length ? fmt0(vMax) : null, vals: { tm, ttl, ttc, tp }, tip: '<b>' + MESES_L[mi] + '</b> · media/día<br>TM ' + tm + ' · TTL ' + ttl + ' · TTC ' + ttc + ' · TP ' + tp + '<br>vehículos máx del mes: <b>' + fmt0(vMax) + '</b>' + (nk ? '<br><span style="color:var(--bad)">' + nk + ' días KO</span>' : '') + '<br><span style="color:var(--faint)">clic → ver el mes</span>' };
+      return { x: mm, mes: mi, cap: capm, alert: nk > 0, top: rm.length ? fmt0(vMax) : null, vals: { tm, ttl, ttc, tp }, tip: '<b>' + MESES_L[mi] + '</b> · media/día<br>TM ' + tm + ' · TTL ' + ttl + ' · TTC ' + ttc + ' · TP ' + tp + '<br>pico medio de flota: <b>' + fmt0(capm) + '</b> veh/día · máx del mes: <b>' + fmt0(vMax) + '</b>' + (nk ? '<br><span style="color:var(--bad)">' + nk + ' días KO</span>' : '') + '<br><span style="color:var(--faint)">clic → ver el mes</span>' };
     });
   } else {
     cd = op.map(r => ({ x: r.fecha.slice(8, 10), fecha: r.fecha, cap: Math.max(r.vehTM, r.vehTT) + r.vehTP, alert: r.ko, vals: { tm: r.vehTM, ttl: r.rutasTTL, ttc: r.rutasTTC, tp: r.vehTP }, tip: '<b>' + fechaLarga(r.fecha) + '</b><br>' + fmt0(r.cols) + ' col · ' + (!r.ko ? '<span style="color:var(--good)">OK</span>' : '<span style="color:var(--bad)">KO · dif ' + (r.dif > 0 ? '+' : '') + fmt0(r.dif) + '</span>') + '<br>TM ' + r.vehTM + ' · TTL ' + r.rutasTTL + ' · TTC ' + r.rutasTTC + ' · TP ' + r.vehTP + '<br><span style="color:var(--faint)">clic → ir a la fila</span>' }));
