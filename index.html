@@ -13,7 +13,7 @@
     --border:#262e3b; --border2:#39445a; --line:#1e2532;
     --text:#eef1f7; --dim:#aab4c8; --faint:#707b90;
     --accent:#5b8cff; --accent-dim:rgba(91,140,255,.14);
-    --tm:#5b8cff; --ttl:#34d399; --ttc:#fbbf24; --tp:#b47cff;
+    --tm:#fbbf24; --ttl:#5b8cff; --ttc:#b47cff; --tp:#34d399;
     --good:#34d399; --warn:#fbbf24; --bad:#f87171; --cap:#8b93a8;
     --sans:'Inter',system-ui,-apple-system,sans-serif;
     --mono:'JetBrains Mono',ui-monospace,monospace;
@@ -874,7 +874,7 @@ function mgrid(vals, opts) {
 /* ---------- gráficos SVG ---------- */
 const SVGNS = 'http://www.w3.org/2000/svg';
 function sv(t, a) { const e = document.createElementNS(SVGNS, t); for (const k in a) e.setAttribute(k, a[k]); return e; }
-const CT = { tm: '#5b8cff', ttl: '#34d399', ttc: '#fbbf24', tp: '#b47cff', cap: '#8b93a8', bad: '#f87171' };
+const CT = { tm: '#fbbf24', ttl: '#5b8cff', ttc: '#b47cff', tp: '#34d399', cap: '#8b93a8', bad: '#f87171' };
 // color identitario de cada colmena (como los iconos: abejas de colores, PAN = pan)
 const COLM_COLOR = { bcn1: '#5b8cff', vlc1: '#22c55e', mad1: '#ef4444', alc1: '#eab308', svq1: '#a855f7', mad2: '#ec4899', mad3: '#f97316', pan2: '#d9a760', pan3: '#b5835a' };
 const colmColor = c => (DB && DB.colores && DB.colores[c]) || COLM_COLOR[c] || '#8b93a8';
@@ -976,7 +976,7 @@ function divBars(data, opts) {
   }
   const n = data.length, bw = Math.min(38, pw / n * 0.7);
   const xStep = Math.max(1, Math.ceil(n * 24 / pw));
-  const thr = opts.thr != null ? opts.thr : 0.1, cPos = opts.cPos || CT.ttc, cNeg = opts.cNeg || CT.bad;
+  const thr = opts.thr != null ? opts.thr : 0.1, cPos = opts.cPos || '#fbbf24', cNeg = opts.cNeg || CT.bad;
   data.forEach((d, i) => {
     const cx = mL + pw * (i + 0.5) / n;
     if (d.v != null) {
@@ -1016,6 +1016,9 @@ function lineChart(series, opts) {
     const xStep = Math.max(1, Math.ceil(n * 26 / pw));
     const etiquetas = series.length <= 2 && pw / n >= 34;   // valores sobre los puntos si caben
     const grupos = [];   // un <g> por serie, para poder resaltar la más cercana al cursor
+    // en cada punto, la serie de MAYOR valor rotula ARRIBA y el resto abajo (sin solapes)
+    const topAt = [];
+    for (let i = 0; i < n; i++) { let best = null, bv = -Infinity; series.forEach((sx, sj) => { const pt = sx.vals[i]; if (pt && pt.v != null && pt.v > bv) { bv = pt.v; best = sj; } }); topAt.push(best); }
     series.forEach((s, si) => {
       const g = sv('g', {}); g.style.transition = 'opacity .12s';
       let d = '', prev = false;
@@ -1025,7 +1028,7 @@ function lineChart(series, opts) {
         if (!pt || pt.v == null) return;
         g.appendChild(sv('circle', { cx: X(i), cy: Y(pt.v), r: 3.5, fill: 'var(--surface)', stroke: s.color, 'stroke-width': 2 }));
         if (etiquetas) {
-          const arriba = si === 0;
+          const arriba = topAt[i] === si;
           const tt = sv('text', { x: X(i), y: Y(pt.v) + (arriba ? -9 : 15), 'text-anchor': 'middle', fill: 'var(--text)', 'font-size': 10, 'font-weight': 700, 'font-family': 'var(--mono)' });
           tt.textContent = fmt2(pt.v); g.appendChild(tt);
         }
@@ -1369,9 +1372,9 @@ function bloquesMensuales(v) {
 
   // gráfico POM vs capacidad
   const cg = card('POM y capacidad por mes', 'columnas/día');
-  cg._b.appendChild(legend([{ c: CT.tm, t: 'POM' }, { line: 1, t: 'capacidad máxima' }, { c: CT.bad, t: 'POM > capacidad' }]));
+  cg._b.appendChild(legend([{ c: '#5b8cff', t: 'POM' }, { line: 1, t: 'capacidad máxima' }, { c: CT.bad, t: 'POM > capacidad' }]));
   const irMes = (i, d) => { seccion = 'dia'; _diaMes = i + 1; renderSeg(); renderView(); };
-  cg._b.appendChild(stacked(res.map((r, mi) => ({ x: MESES[mi], cap: Math.round(r.capMax), alert: r.pom.valor > r.capMax, vals: { pom: r.pom.valor }, tip: '<b>' + MESES_L[mi] + '</b><br>POM ' + fmt0(r.pom.valor) + ' · cap ' + fmt0(r.capMax) + '<br><span style="color:var(--faint)">clic → ver el mes</span>' })), [{ key: 'pom', color: CT.tm }], { h: 200, onClick: irMes }));
+  cg._b.appendChild(stacked(res.map((r, mi) => ({ x: MESES[mi], cap: Math.round(r.capMax), alert: r.pom.valor > r.capMax, vals: { pom: r.pom.valor }, tip: '<b>' + MESES_L[mi] + '</b><br>POM ' + fmt0(r.pom.valor) + ' · cap ' + fmt0(r.capMax) + '<br><span style="color:var(--faint)">clic → ver el mes</span>' })), [{ key: 'pom', color: '#5b8cff' }], { h: 200, onClick: irMes }));
   v.appendChild(cg);
 
   // gráfico columnas sin servir por mes (el déficit real; la cobertura % apenas se mueve del 100%)
@@ -1543,7 +1546,7 @@ function viewOleadas(v) {
   const T0 = 360, T1 = 1470;
   const cg = card('Gantt de la jornada', 'oleadas de carga (06:00–00:00)');
   const inner = el('div'); const filaH = 32, headH = 26; inner.style.cssText = 'position:relative;min-width:1040px;height:' + (headH + olas.length * filaH + 14) + 'px';
-  const head = el('div'); head.style.cssText = 'position:absolute;top:0;left:0;right:0;height:22px;background:linear-gradient(90deg,var(--ttl),#22b98a);border-radius:6px';
+  const head = el('div'); head.style.cssText = 'position:absolute;top:0;left:0;right:0;height:22px;background:linear-gradient(90deg,#34d399,#22b98a);border-radius:6px';
   for (let hh = 360; hh <= 1440; hh += 60) { const lab = el('span', null, fmtHora(hh % 1440)); lab.style.cssText = 'position:absolute;left:' + ((hh - T0) / (T1 - T0) * 100) + '%;transform:translateX(4px);font-family:var(--mono);font-size:9.5px;font-weight:700;color:#06281a;line-height:22px'; head.appendChild(lab); }
   inner.appendChild(head);
   for (let hh = 360; hh <= 1440; hh += 60) { const gl = el('div'); gl.style.cssText = 'position:absolute;top:' + headH + 'px;bottom:0;left:' + ((hh - T0) / (T1 - T0) * 100) + '%;width:1px;background:var(--line)'; inner.appendChild(gl); }
@@ -1643,8 +1646,8 @@ function viewCmp(v) {
   }
   cg.children[0].appendChild(swm);
   cg._b.appendChild(esProd
-    ? legend([{ c: CT.ttc, t: '+ PMR más alta' }, { c: CT.tm, t: '− PMR más baja' }, { c: '#4b5563', t: 'igual' }])
-    : legend([{ c: CT.bad, t: '+ PMR usa más (plan corto)' }, { c: CT.ttl, t: '− PMR usa menos' }, { c: '#4b5563', t: 'igual' }]));
+    ? legend([{ c: '#fbbf24', t: '+ PMR más alta' }, { c: '#5b8cff', t: '− PMR más baja' }, { c: '#4b5563', t: 'igual' }])
+    : legend([{ c: CT.bad, t: '+ PMR usa más (plan corto)' }, { c: '#34d399', t: '− PMR usa menos' }, { c: '#4b5563', t: 'igual' }]));
   let cd;
   if (_cmpMes === 0) {
     cd = MESES.map((mm, mi) => {
@@ -1661,7 +1664,7 @@ function viewCmp(v) {
   }
   if (cd.length) cg._b.appendChild(divBars(cd, {
     h: 190, thr: esProd ? 0.03 : 0.5,
-    cPos: esProd ? CT.ttc : CT.bad, cNeg: esProd ? CT.tm : CT.ttl,
+    cPos: esProd ? '#fbbf24' : CT.bad, cNeg: esProd ? '#5b8cff' : '#34d399',
     onClick: (i, d) => { if (_cmpMes === 0) { _cmpMes = d.mes + 1; renderView(); } else if (d.fecha) scrollFila('fc-' + d.fecha); } }));
   else cg._b.appendChild(el('div', 'note', 'Sin datos en el periodo.'));
   scroll.appendChild(cg);
