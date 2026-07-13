@@ -110,10 +110,8 @@
   /* CHIPS filter (meses) — más grandes; color por productividad vía --pc */
   .chips{display:flex;gap:5px;flex-wrap:wrap}
   .chip{font-family:var(--mono);font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--dim);transition:all .12s;display:inline-flex;align-items:center;gap:7px}
-  .chip::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--pc,var(--faint));flex-shrink:0}
   .chip:hover{border-color:var(--border2);color:var(--text)}
   .chip.on{background:var(--elevated);border-color:var(--accent);color:var(--text)}
-  .chip.plain::before{display:none}
   .chip.plain{font-weight:700;letter-spacing:.04em;padding:8px 16px}
   .chip.plain.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .vsep{width:1px;align-self:stretch;background:var(--border2);margin:3px 6px;flex-shrink:0}
@@ -878,19 +876,14 @@ const CT = { tm: '#fbbf24', ttl: '#5b8cff', ttc: '#b47cff', tp: '#34d399', cap: 
 // color identitario de cada colmena (como los iconos: abejas de colores, PAN = pan)
 const COLM_COLOR = { bcn1: '#5b8cff', vlc1: '#22c55e', mad1: '#ef4444', alc1: '#eab308', svq1: '#a855f7', mad2: '#ec4899', mad3: '#f97316', pan2: '#d9a760', pan3: '#b5835a' };
 const colmColor = c => (DB && DB.colores && DB.colores[c]) || COLM_COLOR[c] || '#8b93a8';
-// color por productividad: azul (más baja del año) → verde (más alta).
-// Sin rojos: no es una alarma, solo una escala.
-function prodColor(v, min, max) { if (!(v > 0) || max <= min) return 'hsl(140 40% 58%)'; const r = Math.max(0, Math.min(1, (v - min) / (max - min))); return 'hsl(' + Math.round(215 - r * 75) + ' 48% 62%)'; }
-// chips de meses: más grandes y coloreados por la productividad media del mes
-// (verde = la más alta del año, rojo = la más baja); AÑO neutro
+// chips de meses (la prod media del mes va en el tooltip de cada chip)
 function mesesChips(pc, dias, sel, onClick) {
   const chips = el('div', 'chips');
   const prodMes = MESES.map((_, mi) => { let s = 0, n = 0; dias.forEach((d, i) => { if (mesDe(d) === mi) { s += pc.prod[i]; n++; } }); return n ? s / n : 0; });
-  const act = prodMes.filter(x => x > 0); const minP = act.length ? Math.min(...act) : 0, maxP = act.length ? Math.max(...act) : 0;
-  const mk = (val, t, plain, col) => { const b = el('button', 'chip' + (plain ? ' plain' : '') + (sel === val ? ' on' : ''), t); if (col) b.style.setProperty('--pc', col); b.title = plain ? 'todo el año' : t + ': prod media ' + fmt2(prodMes[val - 1]); b.addEventListener('click', () => onClick(val)); return b; };
-  chips.appendChild(mk(0, 'AÑO', true));
+  const mk = (val, t, plain) => { const b = el('button', 'chip' + (plain ? ' plain' : '') + (sel === val ? ' on' : ''), t); b.title = plain ? 'todo el año' : t + ': prod media ' + fmt2(prodMes[val - 1]); b.addEventListener('click', () => onClick(val)); return b; };
+  chips.appendChild(mk(0, 'AÑO ' + dias[0].slice(2, 4), true));
   chips.appendChild(el('span', 'vsep'));   // el AÑO (zoom global) se separa de los meses
-  MESES.forEach((mm, i) => chips.appendChild(mk(i + 1, mm, false, prodColor(prodMes[i], minP, maxP))));
+  MESES.forEach((mm, i) => chips.appendChild(mk(i + 1, mm, false)));
   return chips;
 }
 let _tip;
