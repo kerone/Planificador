@@ -692,8 +692,8 @@ function pomMes(pc, dias) {
     return { valor: (ovr != null) ? ovr : auto[m], auto: auto[m], forzado: ovr != null };
   });
 }
-function calcColmena(c) {
-  const p = plan(), pc = p.porCentro[c];
+function calcColmena(c, pl) {
+  const p = pl || plan(), pc = p.porCentro[c];
   const dias = diasDelAño(p.año);
   const poms = pomMes(pc, dias);
   const rows = dias.map((fecha, i) => {
@@ -721,8 +721,8 @@ function calcColmena(c) {
   return { rows, poms, pc, dias };
 }
 // resumen mensual del POM (con las calles y la prod media del mes)
-function resumenMes(c) {
-  const p = plan(), pc = p.porCentro[c];
+function resumenMes(c, pl) {
+  const p = pl || plan(), pc = p.porCentro[c];
   const dias = diasDelAño(p.año);
   const poms = pomMes(pc, dias);
   return MESES.map((_, m) => {
@@ -749,7 +749,7 @@ const SECCIONES = [['dia','Plan'],['params','Parámetros'],['oleadas','Oleadas']
 let seccion = 'dia';
 let _diaMes = 0;          // 0 = año, 1..12 = mes (filtro Vista diaria)
 let _olFecha = null;
-let _prodCfg = { modo: 'años', sel: null };        // gráfica Productividad: comparar años o colmenas
+let _prodCfg = { modo: 'años', sel: null, metrica: 'prod' };   // gráfica Productividad: años/colmenas · prod/vehículos POM
 let _rangoSel = null;                              // {a,b} índices de día seleccionados (barra de rango)
 let _rangoUI = { campo: 'prod', val: '', solo: true }; // últimos valores del editor de rango
 
@@ -1007,6 +1007,7 @@ function lineChart(series, opts) {
   return chartBox(W => {
     const H = opts.h || 240, mL = 52, mR = 18, mT = 18, mB = 26;
     const pw = W - mL - mR, ph = H - mT - mB;
+    const F = opts.fmt || fmt2;
     const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H });
     svg.style.display = 'block';
     const all = series.flatMap(s => s.vals.map(pt => pt && pt.v)).filter(v => v != null && isFinite(v));
@@ -1019,7 +1020,7 @@ function lineChart(series, opts) {
     for (let g = 0; g <= 4; g++) {
       const vv = ymin + (ymax - ymin) * g / 4, yy = Y(vv);
       svg.appendChild(sv('line', { x1: mL, x2: W - mR, y1: yy, y2: yy, stroke: 'var(--line)', 'stroke-width': 1, 'stroke-dasharray': '3 3' }));
-      const tx = sv('text', { x: mL - 7, y: yy + 3.5, 'text-anchor': 'end', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); tx.textContent = fmt2(vv); svg.appendChild(tx);
+      const tx = sv('text', { x: mL - 7, y: yy + 3.5, 'text-anchor': 'end', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); tx.textContent = F(vv); svg.appendChild(tx);
     }
     const xStep = Math.max(1, Math.ceil(n * 26 / pw));
     const etiquetas = series.length <= 2 && pw / n >= 34;   // valores sobre los puntos si caben
@@ -1038,7 +1039,7 @@ function lineChart(series, opts) {
         if (etiquetas) {
           const arriba = topAt[i] === si;
           const tt = sv('text', { x: X(i), y: Y(pt.v) + (arriba ? -9 : 15), 'text-anchor': 'middle', fill: 'var(--text)', 'font-size': 10, 'font-weight': 700, 'font-family': 'var(--mono)' });
-          tt.textContent = fmt2(pt.v); g.appendChild(tt);
+          tt.textContent = F(pt.v); g.appendChild(tt);
         }
       });
       grupos.push(g); svg.appendChild(g);
@@ -1051,7 +1052,7 @@ function lineChart(series, opts) {
     for (let i = 0; i < n; i++) {
       const pt0 = series.map(s => s.vals[i]).find(pt => pt && pt.x != null);
       if (pt0 && i % xStep === 0) { const xt = sv('text', { x: X(i), y: H - 7, 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); xt.textContent = pt0.x; svg.appendChild(xt); }
-      const filas = series.map(s => { const pt = s.vals[i]; return (pt && pt.v != null) ? '<span style="color:' + s.color + '">●</span> ' + s.nombre + ': <b>' + fmt2(pt.v) + '</b>' : null; }).filter(Boolean);
+      const filas = series.map(s => { const pt = s.vals[i]; return (pt && pt.v != null) ? '<span style="color:' + s.color + '">●</span> ' + s.nombre + ': <b>' + F(pt.v) + '</b>' : null; }).filter(Boolean);
       if (!filas.length) continue;
       const tip = '<b>' + (pt0 ? pt0.x : '') + '</b><br>' + filas.join('<br>') + (opts.onClick ? '<br><span style="color:var(--faint)">clic → ver el mes</span>' : '');
       const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = opts.onClick ? 'pointer' : 'default';
@@ -1172,6 +1173,16 @@ function prodSerie(pl, c) {
   return dias.map((d, i) => ({ d, i })).filter(o => mesDe(o.d) === _diaMes - 1)
     .map(o => ({ x: o.d.slice(8, 10), v: pc.prod[o.i] > 0 ? pc.prod[o.i] : null }));
 }
+// vehículos que exige el POM: por mes (vista AÑO) o por día (vista mes)
+function vehSerie(pl, c) {
+  if (!pl || !pl.porCentro[c]) return null;
+  if (_diaMes === 0) {
+    const res = resumenMes(c, pl);
+    return MESES.map((mm, m) => ({ x: mm, v: res[m].pom.valor > 0 ? res[m].veh : null }));
+  }
+  const { rows } = calcColmena(c, pl);
+  return rows.filter(r => r.m === _diaMes - 1).map(r => ({ x: r.fecha.slice(8, 10), v: r.cols > 0 ? r.veh : null }));
+}
 function prodCard(p) {
   const años = Object.keys(DB.planes).sort();
   if (_prodCfg.base !== DB.activo) { _prodCfg.base = DB.activo; _prodCfg.sel = null; }   // por defecto: el año activo
@@ -1179,19 +1190,19 @@ function prodCard(p) {
   _prodCfg.sel = (_prodCfg.sel || [DB.activo]).filter(a => DB.planes[a]);
   if (!_prodCfg.sel.length) _prodCfg.sel = [DB.activo];
   const esRed = _prodCfg.modo === 'red';
-  const periodo = _diaMes ? MESES_L[_diaMes - 1] + ' · día a día' : 'media mensual';
-  const c = card('Productividad', (esRed ? 'todas las colmenas · plan ' + p.año : activeCentro.toUpperCase() + (años.length > 1 ? ' · elige los años a comparar' : '')) + ' · ' + periodo, 'columnas/ruta');
-  const sw = el('div'); sw.style.cssText = 'margin-left:auto;display:flex;gap:6px';
-  for (const [k, t] of [['años', 'Años'], ['red', 'Colmenas']]) {
-    const b = el('button', 'btn sm' + (_prodCfg.modo === k ? ' pri' : ''), t);
-    b.addEventListener('click', () => { _prodCfg.modo = k; rerender(); });
-    sw.appendChild(b);
-  }
+  const esVeh = _prodCfg.metrica === 'veh';
+  const serieDe = esVeh ? vehSerie : prodSerie;
+  const periodo = _diaMes ? MESES_L[_diaMes - 1] + ' · día a día' : (esVeh ? 'flota que exige el POM de cada mes' : 'media mensual');
+  const c = card(esVeh ? 'Vehículos POM' : 'Productividad', (esRed ? 'todas las colmenas · plan ' + p.año : activeCentro.toUpperCase() + (años.length > 1 ? ' · elige los años a comparar' : '')) + ' · ' + periodo, esVeh ? 'vehículos' : 'columnas/ruta');
+  const sw = el('div'); sw.style.cssText = 'margin-left:auto;display:flex;gap:14px';
+  const mkSw = defs => { const g = el('div'); g.style.cssText = 'display:flex;gap:6px'; for (const [k, t, cur, set] of defs) { const b = el('button', 'btn sm' + (cur === k ? ' pri' : ''), t); b.addEventListener('click', () => { set(k); rerender(); }); g.appendChild(b); } return g; };
+  sw.appendChild(mkSw([['prod', 'Productividad', _prodCfg.metrica, k => _prodCfg.metrica = k], ['veh', 'Vehículos POM', _prodCfg.metrica, k => _prodCfg.metrica = k]]));
+  sw.appendChild(mkSw([['años', 'Años', _prodCfg.modo, k => _prodCfg.modo = k], ['red', 'Colmenas', _prodCfg.modo, k => _prodCfg.modo = k]]));
   c.children[0].appendChild(sw);
   const YCOL = ['#5b8cff', '#a78bfa', '#2dd4bf', '#fbbf24', '#f472b6', '#94a3b8'];
   let series;
   if (esRed) {
-    series = p.centros.map(cc => ({ nombre: cc.toUpperCase(), color: colmColor(cc), vals: prodSerie(p, cc) }))
+    series = p.centros.map(cc => ({ nombre: cc.toUpperCase(), color: colmColor(cc), vals: serieDe(p, cc) }))
       .filter(s => s.vals && s.vals.some(pt => pt.v != null));
   } else {
     if (años.length > 1) {
@@ -1204,12 +1215,28 @@ function prodCard(p) {
       }
       c._b.appendChild(ys);
     }
-    series = _prodCfg.sel.map((a, i) => ({ nombre: a, color: YCOL[i % YCOL.length], vals: prodSerie(DB.planes[a], activeCentro) }))
+    series = _prodCfg.sel.map((a, i) => ({ nombre: a, color: YCOL[i % YCOL.length], vals: serieDe(DB.planes[a], activeCentro) }))
       .filter(s => s.vals && s.vals.some(pt => pt.v != null));
   }
   if (series.length > 1) c._b.appendChild(legend(series.map(s => ({ c: s.color, t: s.nombre }))));
-  if (series.length) c._b.appendChild(lineChart(series, { h: 240, onClick: _diaMes === 0 ? i => { _diaMes = i + 1; renderView(); } : null }));
-  else c._b.appendChild(el('div', 'note', 'Sin productividades en el periodo' + (esRed ? '' : ' (¿la colmena existe en esos años?)') + '.'));
+  if (series.length) c._b.appendChild(lineChart(series, { h: 240, fmt: esVeh ? fmt0 : fmt2, onClick: _diaMes === 0 ? i => { _diaMes = i + 1; renderView(); } : null }));
+  else c._b.appendChild(el('div', 'note', 'Sin datos en el periodo' + (esRed ? '' : ' (¿la colmena existe en esos años?)') + '.'));
+  // comparando exactamente DOS años en vehículos: la diferencia mes a mes, en claro
+  if (esVeh && !esRed && series.length === 2) {
+    const [s1, s2] = series;
+    const nn = Math.max(s1.vals.length, s2.vals.length);
+    const dif = Array.from({ length: nn }, (_, i) => {
+      const a = s1.vals[i], b = s2.vals[i];
+      const v = (a && a.v != null && b && b.v != null) ? b.v - a.v : null;
+      return { x: (b || a || {}).x, v, tip: '<b>' + ((b || a || {}).x || '') + '</b><br>' + s1.nombre + ': ' + fmt0(a && a.v) + ' · ' + s2.nombre + ': ' + fmt0(b && b.v) + '<br>Δ = <b>' + (v == null ? '—' : (v > 0 ? '+' : '') + fmt0(v)) + '</b> vehículos' };
+    });
+    const hd = el('div'); hd.style.cssText = 'display:flex;gap:10px;align-items:baseline;margin:14px 0 4px';
+    const tt = el('span', null, 'Δ vehículos POM · ' + s2.nombre + ' − ' + s1.nombre); tt.style.cssText = 'font-weight:700;font-size:12.5px;color:var(--text)';
+    hd.append(tt, el('span', 'note', '+ = ' + s2.nombre + ' necesita más flota'));
+    c._b.appendChild(hd);
+    c._b.appendChild(legend([{ c: '#fbbf24', t: '+ más vehículos' }, { c: '#34d399', t: '− menos vehículos' }, { c: '#4b5563', t: 'igual' }]));
+    c._b.appendChild(divBars(dif, { h: 150, thr: 0.5, cPos: '#fbbf24', cNeg: '#34d399' }));
+  }
   return c;
 }
 
