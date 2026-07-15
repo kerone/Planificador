@@ -749,7 +749,7 @@ const SECCIONES = [['dia','Plan'],['params','Parámetros'],['oleadas','Oleadas']
 let seccion = 'dia';
 let _diaMes = 0;          // 0 = año, 1..12 = mes (filtro Vista diaria)
 let _olFecha = null;
-let _prodCfg = { modo: 'años', sel: null, metrica: 'prod' };   // gráfica Productividad: años/colmenas · prod/vehículos POM
+let _prodCfg = { modo: 'años', sel: null };        // gráfica Productividad: comparar años o colmenas
 let _rangoSel = null;                              // {a,b} índices de día seleccionados (barra de rango)
 let _rangoUI = { campo: 'prod', val: '', solo: true }; // últimos valores del editor de rango
 
@@ -1044,6 +1044,13 @@ function lineChart(series, opts) {
       });
       grupos.push(g); svg.appendChild(g);
     });
+    // marcas Δ (p. ej. vehículos POM): rótulo arriba de la columna correspondiente
+    const marcaAt = {};
+    (opts.marcas || []).forEach(m => {
+      marcaAt[m.i] = m;
+      const tt = sv('text', { x: X(m.i), y: mT + 6, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 800, 'font-family': 'var(--mono)' });
+      tt.setAttribute('fill', m.color); tt.textContent = m.txt; svg.appendChild(tt);
+    });
     // acercar el cursor a una línea la ilumina y atenúa el resto (estilo Metabase)
     const resalta = si => grupos.forEach((g, i) => {
       g.style.opacity = (si == null || i === si) ? '1' : '.22';
@@ -1054,7 +1061,7 @@ function lineChart(series, opts) {
       if (pt0 && i % xStep === 0) { const xt = sv('text', { x: X(i), y: H - 7, 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); xt.textContent = pt0.x; svg.appendChild(xt); }
       const filas = series.map(s => { const pt = s.vals[i]; return (pt && pt.v != null) ? '<span style="color:' + s.color + '">●</span> ' + s.nombre + ': <b>' + F(pt.v) + '</b>' : null; }).filter(Boolean);
       if (!filas.length) continue;
-      const tip = '<b>' + (pt0 ? pt0.x : '') + '</b><br>' + filas.join('<br>') + (opts.onClick ? '<br><span style="color:var(--faint)">clic → ver el mes</span>' : '');
+      const tip = '<b>' + (pt0 ? pt0.x : '') + '</b><br>' + filas.join('<br>') + (marcaAt[i] ? '<br><span style="color:' + marcaAt[i].color.replace('var(--good)', '#34d399').replace('var(--bad)', '#f87171') + '">' + marcaAt[i].tip + '</span>' : '') + (opts.onClick ? '<br><span style="color:var(--faint)">clic → ver el mes</span>' : '');
       const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = opts.onClick ? 'pointer' : 'default';
       hit.addEventListener('pointermove', ev => {
         if (series.length > 1) {
@@ -1190,19 +1197,19 @@ function prodCard(p) {
   _prodCfg.sel = (_prodCfg.sel || [DB.activo]).filter(a => DB.planes[a]);
   if (!_prodCfg.sel.length) _prodCfg.sel = [DB.activo];
   const esRed = _prodCfg.modo === 'red';
-  const esVeh = _prodCfg.metrica === 'veh';
-  const serieDe = esVeh ? vehSerie : prodSerie;
-  const periodo = _diaMes ? MESES_L[_diaMes - 1] + ' · día a día' : (esVeh ? 'flota que exige el POM de cada mes' : 'media mensual');
-  const c = card(esVeh ? 'Vehículos POM' : 'Productividad', (esRed ? 'todas las colmenas · plan ' + p.año : activeCentro.toUpperCase() + (años.length > 1 ? ' · elige los años a comparar' : '')) + ' · ' + periodo, esVeh ? 'vehículos' : 'columnas/ruta');
-  const sw = el('div'); sw.style.cssText = 'margin-left:auto;display:flex;gap:14px';
-  const mkSw = defs => { const g = el('div'); g.style.cssText = 'display:flex;gap:6px'; for (const [k, t, cur, set] of defs) { const b = el('button', 'btn sm' + (cur === k ? ' pri' : ''), t); b.addEventListener('click', () => { set(k); rerender(); }); g.appendChild(b); } return g; };
-  sw.appendChild(mkSw([['prod', 'Productividad', _prodCfg.metrica, k => _prodCfg.metrica = k], ['veh', 'Vehículos POM', _prodCfg.metrica, k => _prodCfg.metrica = k]]));
-  sw.appendChild(mkSw([['años', 'Años', _prodCfg.modo, k => _prodCfg.modo = k], ['red', 'Colmenas', _prodCfg.modo, k => _prodCfg.modo = k]]));
+  const periodo = _diaMes ? MESES_L[_diaMes - 1] + ' · día a día' : 'media mensual';
+  const c = card('Productividad', (esRed ? 'todas las colmenas · plan ' + p.año : activeCentro.toUpperCase() + (años.length > 1 ? ' · elige los años a comparar' : '')) + ' · ' + periodo, 'columnas/ruta');
+  const sw = el('div'); sw.style.cssText = 'margin-left:auto;display:flex;gap:6px';
+  for (const [k, t] of [['años', 'Años'], ['red', 'Colmenas']]) {
+    const b = el('button', 'btn sm' + (_prodCfg.modo === k ? ' pri' : ''), t);
+    b.addEventListener('click', () => { _prodCfg.modo = k; rerender(); });
+    sw.appendChild(b);
+  }
   c.children[0].appendChild(sw);
   const YCOL = ['#5b8cff', '#a78bfa', '#2dd4bf', '#fbbf24', '#f472b6', '#94a3b8'];
   let series;
   if (esRed) {
-    series = p.centros.map(cc => ({ nombre: cc.toUpperCase(), color: colmColor(cc), vals: serieDe(p, cc) }))
+    series = p.centros.map(cc => ({ nombre: cc.toUpperCase(), color: colmColor(cc), vals: prodSerie(p, cc) }))
       .filter(s => s.vals && s.vals.some(pt => pt.v != null));
   } else {
     if (años.length > 1) {
@@ -1215,28 +1222,30 @@ function prodCard(p) {
       }
       c._b.appendChild(ys);
     }
-    series = _prodCfg.sel.map((a, i) => ({ nombre: a, color: YCOL[i % YCOL.length], vals: serieDe(DB.planes[a], activeCentro) }))
+    series = _prodCfg.sel.map((a, i) => ({ nombre: a, color: YCOL[i % YCOL.length], vals: prodSerie(DB.planes[a], activeCentro) }))
       .filter(s => s.vals && s.vals.some(pt => pt.v != null));
   }
-  if (series.length > 1) c._b.appendChild(legend(series.map(s => ({ c: s.color, t: s.nombre }))));
-  if (series.length) c._b.appendChild(lineChart(series, { h: 240, fmt: esVeh ? fmt0 : fmt2, onClick: _diaMes === 0 ? i => { _diaMes = i + 1; renderView(); } : null }));
-  else c._b.appendChild(el('div', 'note', 'Sin datos en el periodo' + (esRed ? '' : ' (¿la colmena existe en esos años?)') + '.'));
-  // comparando exactamente DOS años en vehículos: la diferencia mes a mes, en claro
-  if (esVeh && !esRed && series.length === 2) {
-    const [s1, s2] = series;
-    const nn = Math.max(s1.vals.length, s2.vals.length);
-    const dif = Array.from({ length: nn }, (_, i) => {
-      const a = s1.vals[i], b = s2.vals[i];
-      const v = (a && a.v != null && b && b.v != null) ? b.v - a.v : null;
-      return { x: (b || a || {}).x, v, tip: '<b>' + ((b || a || {}).x || '') + '</b><br>' + s1.nombre + ': ' + fmt0(a && a.v) + ' · ' + s2.nombre + ': ' + fmt0(b && b.v) + '<br>Δ = <b>' + (v == null ? '—' : (v > 0 ? '+' : '') + fmt0(v)) + '</b> vehículos' };
-    });
-    const hd = el('div'); hd.style.cssText = 'display:flex;gap:10px;align-items:baseline;margin:14px 0 4px';
-    const tt = el('span', null, 'Δ vehículos POM · ' + s2.nombre + ' − ' + s1.nombre); tt.style.cssText = 'font-weight:700;font-size:12.5px;color:var(--text)';
-    hd.append(tt, el('span', 'note', '+ = ' + s2.nombre + ' necesita más flota'));
-    c._b.appendChild(hd);
-    c._b.appendChild(legend([{ c: '#fbbf24', t: '+ más vehículos' }, { c: '#34d399', t: '− menos vehículos' }, { c: '#4b5563', t: 'igual' }]));
-    c._b.appendChild(divBars(dif, { h: 150, thr: 0.5, cPos: '#fbbf24', cNeg: '#34d399' }));
+  // comparando DOS años: en los meses/días donde cambian los vehículos del POM,
+  // la propia gráfica lo anota (+N verde = necesitas más · −N rojo = menos)
+  let marcas = null;
+  if (!esRed && series.length === 2 && _prodCfg.sel.length === 2) {
+    const v1 = vehSerie(DB.planes[_prodCfg.sel[0]], activeCentro), v2 = vehSerie(DB.planes[_prodCfg.sel[1]], activeCentro);
+    if (v1 && v2) {
+      marcas = [];
+      for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
+        const a = v1[i], b = v2[i];
+        if (a && b && a.v != null && b.v != null && b.v !== a.v) {
+          const d = b.v - a.v;
+          marcas.push({ i, txt: (d > 0 ? '+' : '') + fmt0(d), color: d > 0 ? 'var(--good)' : 'var(--bad)', tip: 'Δ vehículos POM (' + _prodCfg.sel[1] + ' − ' + _prodCfg.sel[0] + '): <b>' + (d > 0 ? '+' : '') + fmt0(d) + '</b>' });
+        }
+      }
+      if (!marcas.length) marcas = null;
+    }
   }
+  if (series.length > 1) c._b.appendChild(legend(series.map(s => ({ c: s.color, t: s.nombre }))));
+  if (marcas) c._b.appendChild(el('div', 'note', 'El número sobre el mes = Δ de vehículos que exige el POM (' + _prodCfg.sel[1] + ' − ' + _prodCfg.sel[0] + ').'));
+  if (series.length) c._b.appendChild(lineChart(series, { h: 240, marcas, onClick: _diaMes === 0 ? i => { _diaMes = i + 1; renderView(); } : null }));
+  else c._b.appendChild(el('div', 'note', 'Sin datos en el periodo' + (esRed ? '' : ' (¿la colmena existe en esos años?)') + '.'));
   return c;
 }
 
