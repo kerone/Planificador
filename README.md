@@ -133,7 +133,10 @@ como lo que realmente es. También puedes pegar cualquiera en el área de texto:
    «Aplicar» **sustituye por completo** la oferta de las colmenas que vengan en
    el CSV (pide confirmación): el año entero se borra y se escribe lo del CSV —
    los días no incluidos quedan a 0 y nada viejo sobrevive. Las colmenas que no
-   vengan en el CSV no se tocan.
+   vengan en el CSV no se tocan. El año lo decide **el plan activo** (chip AÑO):
+   solo se aplican los días del CSV cuya fecha cae en ese año; los de otros años
+   se ignoran. El resumen previo lo indica («se aplican N días del plan 2027; M
+   de otros años se ignoran»).
 2. **Productividades por turno** — el export de PMR
    (`Origin, Shift, Shift Type, Service Date, Planned Columns, Workers, …`).
    Dos acciones: **Cargar en Plan vs PMR** guarda los datos con el plan para

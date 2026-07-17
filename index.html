@@ -1888,6 +1888,17 @@ function mostrarResumenCsv() {
     return;
   }
   t.append(el('div', null, 'Filas: ' + fmt0(_stage.filas) + (_stage.errores ? ' (' + _stage.errores + ' descartadas)' : '') + ' · Colmenas: ' + _stage.centros.join(', ')), el('div', null, 'Rango: ' + (_stage.fmin ? _stage.fmin + ' → ' + _stage.fmax : '—')));
+  // cuántos días del CSV caen en el plan activo (solo esos se aplican) y cuántos son de otros años
+  const dCsv = diasDelAño(p.año); const idxDe = Object.fromEntries(dCsv.map(d => [d, 1]));
+  let enPlan = 0, fuera = 0; const añosFuera = {};
+  for (const c of _stage.centros) for (const f of Object.keys(_stage.datos[c])) { if (idxDe[f]) enPlan++; else { fuera++; añosFuera[f.slice(0, 4)] = 1; } }
+  const añosF = Object.keys(añosFuera).sort().join(', ');
+  const nd = n => fmt0(n) + (n === 1 ? ' día' : ' días');
+  const li = el('div', 'note'); li.style.marginTop = '6px';
+  li.innerHTML = fuera
+    ? '➜ Se aplican <b>' + nd(enPlan) + '</b> del plan <b>' + p.año + '</b>; <b>' + nd(fuera) + '</b> de otros años (' + añosF + ') se <b>ignoran</b>. Para aplicarlos, cambia de año en el chip AÑO.'
+    : '➜ Los <b>' + nd(enPlan) + '</b> del CSV son del plan <b>' + p.año + '</b> y se aplicarán.';
+  t.appendChild(li);
   const nuevas = _stage.centros.filter(c => !p.centros.includes(c));
   if (nuevas.length) t.append(el('div', null, '⚠ Colmenas nuevas: ' + nuevas.join(', ')));
   const b = el('button', 'btn pri sm', 'Aplicar al plan ' + p.año); b.style.marginTop = '10px'; b.addEventListener('click', aplicarCsv); t.appendChild(b); box.appendChild(t);
