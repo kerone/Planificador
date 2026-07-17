@@ -1300,7 +1300,7 @@ function viewDia(v) {
 
   // barra de filtro por mes (meses coloreados por productividad)
   const bar = el('div'); bar.style.cssText = 'padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0';
-  bar.appendChild(mesesChips(pc, diasDelAño(p.año), _diaMes, v2 => { _diaMes = v2; renderView(); }));
+  bar.appendChild(mesesChips(pc, diasDelAño(p.año), _diaMes, v2 => { _diaMes = v2; rerender(); }));
   const hint = el('span', null, 'Columnas, prod, POM y Oferta SM editables por día · arrastra en la barra de días para editar un rango'); hint.style.cssText = 'margin-left:auto;font-size:11px;color:var(--faint)';
   bar.appendChild(hint);
   v.appendChild(bar);
@@ -1658,7 +1658,7 @@ function viewCmp(v) {
 
   // barra de filtro por mes (meses coloreados por productividad)
   const bar = el('div'); bar.style.cssText = 'padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0';
-  bar.appendChild(mesesChips(pc, dias, _cmpMes, v2 => { _cmpMes = v2; renderView(); }));
+  bar.appendChild(mesesChips(pc, dias, _cmpMes, v2 => { _cmpMes = v2; rerender(); }));
   const hint = el('span', null, (p.extMeta || '') + ' · Δ = PMR − plan'); hint.style.cssText = 'margin-left:auto;font-size:11px;color:var(--faint)';
   bar.appendChild(hint);
   const bDel = el('button', 'btn sm', 'Vaciar');
