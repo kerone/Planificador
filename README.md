@@ -125,8 +125,7 @@ cabecera y se abre como ventana sobre la vista actual.
 
 El botón «Importar CSV» abre el recuadro **Subir datos** con una caja por
 fuente — **Columnas de negocio** y **Turnos de PMR** — cada una con su enlace
-«Abrir en Metabase ↗» (el de negocio aparece al rellenar `METABASE.negocio` en
-el código; la caja trae también «Copiar SQL»). Arrastra el CSV a su caja o haz
+«Abrir en Metabase ↗». Arrastra el CSV a su caja o haz
 clic para elegirlo; si sueltas uno en la caja equivocada, avisa y lo analiza
 como lo que realmente es. También puedes pegar cualquiera en el área de texto:
 
@@ -153,5 +152,5 @@ WHERE center IN ('vlc1','bcn1','mad1','alc1','svq1','mad2','pan2','pan3','mad3')
 ORDER BY center, service_date
 ```
 
-Usa `total_columns` (o `adjusted_total_columns` con la casilla). Opcionalmente puede
-fijar la Oferta SM de cada día con `morning_columns` de la query.
+Se usan **siempre** las columnas `adjusted_*` (si el export no las trae, caen a
+las normales), y la Oferta SM de cada día se fija con la columna de mañana.

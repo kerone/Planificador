@@ -208,8 +208,7 @@
   .upacts{display:flex;gap:8px;justify-content:center;margin-top:11px;flex-wrap:wrap}
   .fuente{display:inline-block;font-size:11px;font-weight:800;color:var(--accent);text-decoration:none;padding:4px 13px;border:1px solid var(--border2);border-radius:14px;background:var(--surface);cursor:pointer;transition:all .15s;font-family:var(--sans)}
   .fuente:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .chkadj{display:flex;gap:6px;align-items:center;justify-content:center;font-size:11px;color:var(--dim);margin-top:10px}
-  .chkadj input{width:auto}
+
   .drop:hover,.drop.over{border-color:var(--accent);color:var(--text)}
   textarea{width:100%;min-height:90px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--mono);font-size:10.5px;padding:10px;outline:none;resize:vertical;margin-top:10px}
   .frow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:11px 0;font-size:12.5px}
@@ -266,9 +265,8 @@
       <input type="file" id="fNeg" accept=".csv,.txt">
       <div class="tit">📊 Columnas de negocio</div>
       <div class="det">query <code>daily_business_offer</code><br>columnas por día y colmena</div>
-      <div class="upacts"><a class="fuente" id="lnkNeg" target="_blank" rel="noopener">Abrir en Metabase ↗</a><button class="fuente" id="bSqlNeg" type="button">Copiar SQL</button></div>
-      <div class="det2">arrastra aquí el CSV o haz clic</div>
-      <label class="chkadj"><input type="checkbox" id="chkAdj"> usar columnas <code>adjusted_*</code></label>
+      <div class="upacts"><a class="fuente" id="lnkNeg" target="_blank" rel="noopener">Abrir en Metabase ↗</a></div>
+      <div class="det2">arrastra aquí el CSV o haz clic · usa siempre las columnas <code>adjusted_*</code></div>
     </div>
     <div class="up" id="upPmr">
       <input type="file" id="fPmr" accept=".csv,.txt">
@@ -644,10 +642,9 @@ const NUBE_CONFIG = {
 };
 // enlaces del recuadro «Subir datos» (cabecera → Importar CSV)
 const METABASE = {
-  negocio: '',   // ← pega aquí el enlace de Metabase de la query daily_business_offer
+  negocio: 'https://metabase.prod.monline/question/29420-foto-ventamo-para-anual',
   pmr: 'https://metabase.prod.monline/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImRhdGFiYXNlIjo3OCwidHlwZSI6InF1ZXJ5IiwicXVlcnkiOnsic291cmNlLXRhYmxlIjo2MzQyNn19LCJkaXNwbGF5IjoidGFibGUiLCJ2aXN1YWxpemF0aW9uX3NldHRpbmdzIjp7fX0=',
 };
-const SQL_NEGOCIO = "SELECT * FROM `prod-mercadona.venta_mart.daily_business_offer`\nWHERE center IN ('vlc1','bcn1','mad1','alc1','svq1','mad2','pan2','pan3','mad3')\n  AND service_date >= '2026-01-01'\nORDER BY center, service_date";
 const NUBE_KEY = 'planificadorNube.v1';   // solo guarda lastTs y el flag de pendiente en local
 function nubeCfg() { let extra = {}; try { extra = JSON.parse(localStorage.getItem(NUBE_KEY)) || {}; } catch (e) {} return { ...NUBE_CONFIG, lastTs: extra.lastTs, dirty: !!extra.dirty }; }
 function nubeCfgSave(c) { localStorage.setItem(NUBE_KEY, JSON.stringify({ lastTs: c.lastTs, dirty: !!c.dirty })); }
@@ -810,7 +807,7 @@ function renderRail() {
     const meta = el('span', 'cm');
     meta.innerHTML = '<span class="cpom">' + fmt0(pomMax) + '</span>' + (ko ? '<span style="color:var(--bad)">' + ko + ' KO</span>' : '<span style="color:var(--good)">OK</span>');
     b.appendChild(meta);
-    b.addEventListener('click', () => { activeCentro = c; renderRail(); rerender(); });
+    b.addEventListener('click', () => { activeCentro = c; _diaMes = 0; _cmpMes = 0; renderRail(); rerender(); });   // al cambiar de colmena, visión AÑO
     rail.appendChild(b);
   }
   const add = el('button', 'colm add', '+'); add.title = 'Añadir colmena';
@@ -1814,11 +1811,15 @@ function viewGuia(v) {
 /* ---------- CSV / planes / eventos ---------- */
 function splitCSVLine(line, sep) { const out = []; let cur = '', q = false; for (let i = 0; i < line.length; i++) { const ch = line[i]; if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; } else if (ch === '"') q = true; else if (ch === sep) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; }
 function fechaCSV(s) { s = s.trim().replace(/^"|"$/g, ''); let iso = null; let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m) iso = m[1] + '-' + m[2] + '-' + m[3]; else { m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s); if (m) iso = m[3] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0'); } if (!iso) return null; const ms = isoToMs(iso); return (isFinite(ms) && msToIso(ms) === iso) ? iso : null; }
-function parseCSV(text, usarAdj) {
+function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim() !== ''); if (lines.length < 2) throw new Error('CSV vacío');
   const sep = [',', ';', '\t'].map(s => [s, lines[0].split(s).length]).sort((a, b) => b[1] - a[1])[0][0];
   const hdr = splitCSVLine(lines[0], sep).map(x => x.trim().toLowerCase());
-  const iC = hdr.indexOf('center'), iF = hdr.indexOf('service_date'), iT = hdr.indexOf(usarAdj ? 'adjusted_total_columns' : 'total_columns'), iM = hdr.indexOf(usarAdj ? 'adjusted_morning_columns' : 'morning_columns');
+  // SIEMPRE las columnas adjusted_*; si el export no las trae, caen a las normales
+  const iTa = hdr.indexOf('adjusted_total_columns'), iMa = hdr.indexOf('adjusted_morning_columns');
+  const iC = hdr.indexOf('center'), iF = hdr.indexOf('service_date');
+  const iT = iTa >= 0 ? iTa : hdr.indexOf('total_columns');
+  const iM = iMa >= 0 ? iMa : hdr.indexOf('morning_columns');
   if (iC < 0 || iF < 0 || iT < 0) throw new Error('Faltan columnas center / service_date / total_columns');
   const datos = {}; let filas = 0, errores = 0, fmin = null, fmax = null;
   for (let i = 1; i < lines.length; i++) { const pr = splitCSVLine(lines[i], sep); const c = (pr[iC] || '').trim().replace(/^"|"$/g, '').toLowerCase(); const f = fechaCSV(pr[iF] || ''); if (!/^[a-z0-9]{2,8}$/.test(c) || !f) { errores++; continue; } const tot = numES(pr[iT]), man = iM >= 0 ? numES(pr[iM]) : NaN; if (!isFinite(tot)) { errores++; continue; } (datos[c] = datos[c] || {})[f] = [tot, isFinite(man) ? man : null]; filas++; if (!fmin || f < fmin) fmin = f; if (!fmax || f > fmax) fmax = f; }
@@ -1973,7 +1974,7 @@ function procesarCsv(txt, esperado) {
     const esPmr = primera.includes('origin') && primera.includes('shift');
     if (esperado === 'cols' && esPmr) toast('ℹ Este CSV es de PMR — lo analizo como PMR');
     if (esperado === 'prod' && !esPmr) toast('ℹ Este CSV es de la query de negocio — lo analizo como tal');
-    _stage = esPmr ? parseProdCSV(txt) : parseCSV(txt, $('#chkAdj').checked);
+    _stage = esPmr ? parseProdCSV(txt) : parseCSV(txt);
     mostrarResumenCsv();
   } catch (e) { toast('⚠ ' + e.message); $('#csvRes').textContent = ''; }
 }
@@ -2056,7 +2057,6 @@ function initEventos() {
     box.addEventListener('drop', async e => { e.preventDefault(); box.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) procesarCsv(await f.text(), esperado); });
   };
   wireUp('upNeg', 'fNeg', 'cols'); wireUp('upPmr', 'fPmr', 'prod');
-  $('#bSqlNeg').addEventListener('click', () => { navigator.clipboard.writeText(SQL_NEGOCIO).then(() => toast('SQL de negocio copiada al portapapeles')).catch(() => toast('⚠ No se pudo copiar')); });
   const setLnk = (id, url) => { const a = $('#' + id); if (url) a.href = url; else a.style.display = 'none'; };
   setLnk('lnkNeg', METABASE.negocio); setLnk('lnkPmr', METABASE.pmr);
   $('#bParse').addEventListener('click', () => { const t = $('#csvPaste').value; if (!t.trim()) { toast('Pega el CSV'); return; } procesarCsv(t); });
