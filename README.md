@@ -113,7 +113,8 @@ cabecera y se abre como ventana sobre la vista actual.
 - **AÑO ▾ → + Nuevo año…** (en la barra de meses) crea el 2027 copiando
   productividades y máximos; las columnas se
  dejan vacías (se cargan de la query), se copian o se copian escaladas +X %.
-  El año activo también se cambia desde ese desplegable.
+  El año activo también se cambia desde ese desplegable, y cada plan lleva su
+  papelera 🗑 para eliminarlo (con confirmación; siempre debe quedar al menos uno).
   La copia de valores diarios (productividades y columnas) se alinea **por día de
   la semana**: cada día del año nuevo toma el día equivalente del base (lunes ↔
   lunes, ±3 días; en los bordes del año salta una semana), así el patrón semanal

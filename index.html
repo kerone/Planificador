@@ -894,10 +894,18 @@ function mesesChips(pc, dias, sel, onClick) {
   const sum = el('summary', 'chip plain', '▾'); sum.title = 'cambiar de año · crear plan';
   sum.style.cssText = 'border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-1px;padding:8px 10px;height:100%';
   const panel = el('div', 'dd-panel'); panel.style.right = 'auto'; panel.style.left = '0';
+  const varios = Object.keys(DB.planes).length > 1;
   for (const a of Object.keys(DB.planes).sort()) {
-    const b = el('button', 'btn sm' + (a === DB.activo ? ' pri' : ''), 'Plan ' + a);
+    const fila = el('div'); fila.style.cssText = 'display:flex;gap:6px;align-items:stretch';
+    const b = el('button', 'btn sm' + (a === DB.activo ? ' pri' : ''), 'Plan ' + a); b.style.flex = '1';
     b.addEventListener('click', () => { dd.open = false; cambiarPlan(a); });
-    panel.appendChild(b);
+    fila.appendChild(b);
+    if (varios) {
+      const bx = el('button', 'btn sm', '🗑'); bx.title = 'Eliminar el plan ' + a + ' (definitivo)'; bx.style.padding = '7px 9px';
+      bx.addEventListener('click', () => { dd.open = false; eliminarPlan(a); });
+      fila.appendChild(bx);
+    }
+    panel.appendChild(fila);
   }
   const bNv = el('button', 'btn sm', '+ Nuevo año…');
   bNv.addEventListener('click', () => { dd.open = false; abrirNuevoAño(); });
@@ -1972,6 +1980,16 @@ function abrirNuevoAño() {
   const nb = $('#npBase'); nb.textContent = '';
   for (const a of años) { const o = el('option', null, 'Plan ' + a); o.value = a; nb.appendChild(o); }
   nb.value = DB.activo; $('#mNuevo').classList.add('on');
+}
+function eliminarPlan(a) {
+  if (Object.keys(DB.planes).length <= 1) { toast('⚠ No puedes eliminar el único plan que queda'); return; }
+  if (!confirm('¿Eliminar DEFINITIVAMENTE el plan ' + a + '? Se borran todas sus colmenas y datos (y se sincroniza con la nube). No se puede deshacer.')) return;
+  delete DB.planes[a];
+  if (DB.activo === a) { DB.activo = Object.keys(DB.planes).sort()[0]; if (!plan().centros.includes(activeCentro)) activeCentro = plan().centros[0]; }
+  if (Array.isArray(_prodCfg.sel)) _prodCfg.sel = _prodCfg.sel.filter(x => x !== a);
+  _prodCfg.base = null;   // la gráfica vuelve a su defecto (todos los años)
+  _rangoSel = null;
+  tocado(); toast('Plan ' + a + ' eliminado');
 }
 function cambiarPlan(a) {
   if (a === DB.activo) return;
