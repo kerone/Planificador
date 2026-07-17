@@ -341,97 +341,108 @@ function numCSV(s) {
 }
 
 /* ---------- MOTOR (réplica de la CARPETA VERDE del Excel de Productividades) ----------
-   Dos fases, todo en RUTAS enteras con techo (ROUNDUP):
-   1) PARQUE desde el POM:  R (TM) = techo(POM·%OfertaTM/prod) ≤ calles TM
-                            U (largas) = resto ≤ largas · V (cortas, prod×6,5/7,5) ≤ cortas
-                            S (TP) = resto ≤ mín(calles TP, calles TM/2)
-   2) DÍA con la oferta real, en cascada puente→mañana→largas→cortas,
-      cada turno capado a su PARQUE. Servido = Σ rutas × prod (cortas ×6,5/7,5). */
+   Réplica del ORGANIZADOR OPERATIVO del Excel (validada contra sus 3.285 filas;
+   se excluyen las 641 gobernadas por la variante antigua con el signo cambiado).
+   Entradas por día: máximos TM (H) · TT total (I = largas+cortas) · TP (J) ·
+   cortas (K), POM (L), productividad (M), oferta (AA) y mañana de la query.
+   1) Cortes:  N = mín(cap. mañana, cap. tarde)·2 · O = cap. TM+TT · P = capacidad
+   2) Parque:  R (TM) = 50% del POM hasta N; entre N y O la mañana cubre lo que la
+      tarde no puede; después, todas las calles · S largas · T cortas · V ≤ J (TP)
+      X (techo SM) = techo₁₀(R·M + V·M/2) · Z = máx(R+V, S+T+V)
+   3) Día:     AB = mín(mañana query, X) → cascada TP→TM→largas→cortas capada al
+      parque · Servido = Σ rutas × prod (cortas × 6,5/7,5). */
 function xround(x) { return Math.sign(x) * Math.round(Math.abs(x)); } // ROUND de Excel
-const RATIO_CORTAS = 6.5 / 7.5;   // las cortas rinden prod × 6,5/7,5 (Carpeta Verde)
-const up = x => Math.ceil(x - 1e-9);                                  // ROUNDUP de Excel
-// %Oferta TM por defecto (columna O de la Carpeta Verde): 0,5 general,
-// 0,7 en PAN2/PAN3 y mad3 al 0,52 de septiembre a diciembre
-function pctTMDef(c) {
-  if (c === 'pan2' || c === 'pan3') return Array(12).fill(0.7);
-  if (c === 'mad3') return [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.52, 0.52, 0.52, 0.52];
-  return Array(12).fill(0.5);
-}
+const RATIO_CORTAS = 6.5 / 7.5;   // las cortas rinden prod × 6,5/7,5
+// ROUNDUP de Excel: lejos de cero y SIN épsilon (la hoja aprovecha los empates exactos)
+const upx = x => x >= 0 ? Math.ceil(x) : Math.floor(x);
+// compat con planes guardados (el %TM ya no interviene en el motor)
+function pctTMDef(c) { return Array(12).fill(0.5); }
 
 function calcDiaV2(inp) {
   const { pom, callesTM, callesTP, prod, oferta } = inp;
-  const largasTT = Math.max(inp.largasTT || 0, 0);
-  const cortasTT = Math.max(inp.cortasTT || 0, 0);
-  const callesTT = largasTT + cortasTT;
-  const ratio = inp.ratioTP ?? 0.4;                   // AE: % máx TP sobre la tarde
-  const pctTM = inp.pctTM > 0 ? inp.pctTM : 0.5;      // O: % Oferta TM (0,5 gral · 0,7 PAN)
-  const N = prod, prodC = N * RATIO_CORTAS;
-  const maxTP = Math.min(callesTP || 0, Math.ceil((callesTM || 0) / 2)); // K = mín(calles TP, TM/2)
-  // ---- FASE 1 · parque de rutas desde el POM ----
-  const M = pom;
-  const pR = N > 0 ? Math.min(up(M * pctTM / N), callesTM || 0) : 0;                          // rutas TM
-  const pU = N > 0 ? Math.max(Math.min(up((M - pR * N) / N), largasTT), 0) : 0;               // largas
-  const pV = N > 0 ? Math.max(Math.min(up((M - pR * N - pU * N) / prodC), cortasTT), 0) : 0;  // cortas
-  const pS = N > 0 ? Math.max(Math.min(up((M - pR * N - pV * prodC - pU * N) / N), maxTP), 0) : 0; // TP
-  const pomCols = pR * N + pU * N + pV * prodC + pS * N;   // X: POM Columnas del parque
-  // P (capacidad máxima teórica de la Carpeta): calles a tope, cortas a 6,5/8
-  const capMax = Math.floor(((callesTM || 0) + maxTP + largasTT + cortasTT / 8 * 6.5) * N + 1e-9);
-  const capTM = xround((callesTM || 0) * N), capTP = xround((callesTP || 0) * N), capTT = xround(callesTT * N);
-  // desglose del POM para la vista Mensual (desde el parque)
-  const pomTM = xround(pR * N), pomTT = xround(pU * N + pV * prodC), pomTP = xround(pS * N);
-  const pomSM = xround(pR * N + pS * N / 2), pomST = pom - pomSM;
-  // ---- FASE 2 · operativa del día (capada al parque) ----
+  const largasTT = Math.max(inp.largasTT || 0, 0);      // I − K del Organizador
+  const cortasTT = Math.max(inp.cortasTT || 0, 0);      // K
+  const H = callesTM || 0, J = callesTP || 0, K = cortasTT, L = pom, M = prod;
+  const callesTT = largasTT + cortasTT;                  // I (máximo TT total)
+  // AE: la hoja guarda 0,400000000000001 a propósito — fuerza el ROUNDUP en los
+  // empates exactos de cand2. Se reproduce cuando el usuario tiene el 0,4 estándar.
+  let ratio = inp.ratioTP ?? 0.4;
+  if (Math.abs(ratio - 0.4) < 1e-12) ratio = 0.400000000000001;
+  const prodC = M * RATIO_CORTAS;
+  if (!(M > 0)) return calcVacio(largasTT, cortasTT, prodC);
+  // ---- cortes y capacidad (N · O · P) ----
+  const corteSim = Math.min(H * M, largasTT * M + K * M * 6.5 / 7.5) * 2;        // N
+  const corteTMTT = (H + largasTT) * M + K * M * 6.5 / 7.5;                      // O
+  const capMax = Math.floor((H + J + largasTT + K / 7.5 * 6.5) * M);             // P (ROUNDDOWN)
+  // ---- parque desde el POM: R (TM) · S (largas) · T (cortas) · V (TP) ----
+  // R: hasta el corte simétrico, mitad y mitad; hasta el corte TM+TT, la mañana
+  // cubre lo que la tarde completa no puede; más allá, todas las calles TM
+  const pR = L <= corteSim ? upx(0.5 * L / M) : L <= corteTMTT ? upx((L - K * M / 7.5 * 6.5 - largasTT * M) / M) : H;
+  const pU = Math.min(upx((L - pR * M) / M), largasTT);                                        // S largas
+  const pV = Math.max(Math.min(upx((L - pR * M - pU * M) / (M * 6.5 / 7.5)), K), 0);           // T cortas
+  const pS = Math.max(Math.min(upx((L - pR * M - pV * M * 6.5 / 7.5 - pU * M) / M), J), 0);    // V TP (cap J directo)
+  const pomCols = pR * M + pV * M / 7.5 * 6.5 + pU * M + pS * M;                 // W
+  const pomSM = upx((pR * M + pS * M / 2) / 10) * 10;                            // X (múltiplo de 10, techo SM)
+  const pomST = pomCols - pomSM;                                                 // Y
+  const vehPOM = Math.max(pR + pS, pU + pV + pS);                                // Z
+  const capTM = xround(H * M), capTP = xround(J * M), capTT = xround(callesTT * M);
+  const pomTM = xround(pR * M), pomTT = xround(pU * M + pV * prodC), pomTP = xround(pS * M);
+  // ---- día (oferta real): AB · AF · AG · AH · AI ----
   const AA = oferta;
-  // Oferta SM (AB): override del día > mañana de la query > techo del parque de mañana
-  const Q = inp.ofertaSM != null ? Math.min(xround(inp.ofertaSM), xround(AA)) : (inp.ofertaSMQuery != null
-    ? Math.min(xround(inp.ofertaSMQuery), xround(AA))
-    : Math.min(xround(pR * N), xround(AA)));
-  const Rst = AA - Q;                                 // Oferta ST (AD)
-  // AF · rutas de puente: mín(usar el parque SM, % máx sobre la tarde, parque TP)
-  const cand1 = N > 0 ? up((Q - pR * N / 2) / N) : 0;
-  const cand2 = N > 0 ? up(ratio * Rst / (1 - ratio / 2) / N) : 0;
-  const AF = AA > 0 ? Math.max(Math.min(inp.modoTP === 'fijo' ? Infinity : cand1, cand2, pS), 0) : 0;
-  // AG · rutas de mañana: cubren la Oferta SM (el TP aporta media)
-  const AG = AA > 0 && N > 0 ? Math.max(Math.min(up((Q - AF * N / 2) / N), pR), 0) : 0;
-  // AH · largas y AI · cortas: el resto del día, en cascada
-  const AH = AA > 0 && N > 0 ? Math.max(Math.min(up((AA - AG * N - AF * N) / N), pU), 0) : 0;
-  const AI = AA > 0 && N > 0 ? Math.max(Math.min(up((AA - AF * N - AG * N - AH * N) / prodC), pV), 0) : 0;
-  // AK · servido = lo que reparte la flota del día
-  const AK = (AF + AG + AH + AI * RATIO_CORTAS) * N;
+  // Oferta SM (AB) = mín(mañana de la query, techo X); override del día manda
+  const Q = inp.ofertaSM != null ? Math.max(Math.min(xround(inp.ofertaSM), xround(AA)), 0) : (inp.ofertaSMQuery != null
+    ? Math.max(Math.min(xround(inp.ofertaSMQuery), pomSM, xround(AA)), 0)
+    : Math.max(Math.min(pomSM, xround(AA)), 0));
+  const Rst = AA - Q;                                                            // AD
+  const cand1 = upx((Q - pR * M / 2) / M);
+  const cand2 = upx(ratio * (AA - Q) / (1 - ratio / 2) / M);
+  const AF = AA > 0 ? Math.max(Math.min(cand1, cand2, pS), 0) : 0;
+  const AG = AA > 0 ? Math.max(Math.min(upx((Q - AF * M / 2) / M), pR), 0) : 0;
+  const AH = AA > 0 ? Math.max(Math.min(upx((AA - AG * M - AF * M) / M), pU), 0) : 0;
+  const AI = AA > 0 ? Math.max(Math.min(upx((AA - AF * M - AG * M - AH * M) / (M / 7.5 * 6.5)), pV), 0) : 0;
+  const callesNec = Math.max(AG, AH);                                            // AJ
+  const AK = (AF + AG + AH + AI * 6.5 / 7.5) * M;                                // servido
   const reparto = Math.round(AK);
-  let sinServir = Math.max(AA - AK, 0);
-  if (sinServir < 2) sinServir = 0;
-  const cubierto = sinServir === 0;                   // AL: Oferta_OK
+  const sinServir = Math.max(AA - AK, 0);
+  const cubierto = AK >= AA - 1e-9;                                              // AL: Oferta_OK
   const servido = AA - sinServir;
   const cobPct = AA > 0 ? Math.min(servido, AA) / AA * 100 : 100;
-  // columnas por turno = rutas × prod (suman al reparto)
-  const colTMv = Math.round(AG * N), colTTv = Math.round(AH * N + AI * prodC), colTPv = Math.round(AF * N);
-  const colTM = colTMv, colTT = colTTv, colTTL = Math.round(AH * N), colTTC = Math.round(AI * prodC);
+  const colTMv = Math.round(AG * M), colTTv = Math.round(AH * M + AI * prodC), colTPv = Math.round(AF * M);
+  const colTM = colTMv, colTT = colTTv, colTTL = Math.round(AH * M), colTTC = Math.round(AI * prodC);
   const vehTM = AG, rutasTTL = AH, rutasTTC = AI, vehTP = AF;
   const vehTT = AH + AI;
-  const veh = Math.max(AG + AF, AH + AI + AF);        // Y del día (pico)
-  // qué limita cuando el día no se cubre: el turno cuyo PARQUE se agota
+  const veh = Math.max(AG + AF, AH + AI + AF);        // pico de flota del día
+  const vehMin = Math.min(AF + AG, AF + AH + AI);     // AM: Vehículos del Organizador
+  // qué limita cuando el día no se cubre: el turno cuyo parque se agota
   let cuelloBotella = null, limitaDetalle = '';
-  if (sinServir > 0) {
+  if (sinServir > 0.5) {
     const topeTM = pR > 0 && AG >= pR, topeL = pU > 0 && AH >= pU;
     const topeC = pV > 0 && AI >= pV, topeTP = pS > 0 && AF >= pS;
-    const tardeTope = (pU === 0 || topeL) && (pV === 0 || topeC);
+    const tardeTope = (pU <= 0 || topeL) && (pV === 0 || topeC);
     if ((pR === 0 || topeTM) && tardeTope && (pS === 0 || topeTP)) cuelloBotella = 'tope';
     else if (tardeTope && pU > 0) cuelloBotella = 'tarde';
     else if (topeL) cuelloBotella = 'largas';
     else if (topeC) cuelloBotella = 'cortas';
     else if (topeTP) cuelloBotella = 'TP';
     else cuelloBotella = 'tope';
-    limitaDetalle = 'Parque agotado → TM ' + AG + '/' + pR + ' · largas ' + AH + '/' + pU +
+    limitaDetalle = 'Parque agotado → TM ' + AG + '/' + pR + ' · largas ' + AH + '/' + Math.max(pU, 0) +
       ' · cortas ' + AI + '/' + pV + ' · TP ' + AF + '/' + pS +
-      '. El parque sale del POM (' + fmt0(pom) + ' × %TM ' + Math.round(pctTM * 100) + '%): súbelo, o más vehículos/productividad.';
+      '. El parque sale del POM (' + fmt0(pom) + ', cortes del Organizador): súbelo, o más vehículos/productividad.';
   }
-  return { capTM, capTP, capTT, capMax, pomTT, pomTM, pomTP, pomSM, pomST, pomCols,
-           parque: { R: pR, U: pU, V: pV, S: pS, maxTP },
-           ofertaSM: Q, ofertaST: Rst, colTP: colTPv, colTM, colTT, tpAmpliado: false,
-           colTMv, colTTv, colTPv, reparto,
+  return { capTM, capTP, capTT, capMax, corteSim, corteTMTT, pomTT, pomTM, pomTP, pomSM, pomST, pomCols, vehPOM,
+           parque: { R: pR, U: pU, V: pV, S: pS, maxTP: J },
+           ofertaSM: Q, ofertaST: Rst, colTP: colTPv, colTM, colTT,
+           colTMv, colTTv, colTPv, reparto, callesNec, vehMin,
            colTTL, colTTC, rutasTTL, rutasTTC, maxLargas: largasTT, cortasReserv: cortasTT, largasTT, cortasTT, prodC,
            sinServir, cubierto, servido, cobPct, cuelloBotella, limitaDetalle, vehTM, vehTT, vehTP, veh };
+}
+// sin productividad no hay cálculo posible: todo a cero
+function calcVacio(largasTT, cortasTT, prodC) {
+  return { capTM: 0, capTP: 0, capTT: 0, capMax: 0, corteSim: 0, corteTMTT: 0, pomTT: 0, pomTM: 0, pomTP: 0, pomSM: 0, pomST: 0, pomCols: 0, vehPOM: 0,
+           parque: { R: 0, U: 0, V: 0, S: 0, maxTP: 0 }, ofertaSM: 0, ofertaST: 0, colTP: 0, colTM: 0, colTT: 0,
+           colTMv: 0, colTTv: 0, colTPv: 0, reparto: 0, callesNec: 0, vehMin: 0,
+           colTTL: 0, colTTC: 0, rutasTTL: 0, rutasTTC: 0, maxLargas: largasTT, cortasReserv: cortasTT, largasTT, cortasTT, prodC,
+           sinServir: 0, cubierto: true, servido: 0, cobPct: 100, cuelloBotella: null, limitaDetalle: '', vehTM: 0, vehTT: 0, vehTP: 0, veh: 0 };
 }
 // constantes de jornada (minutos desde las 00:00)
 // durLarga 8h, durCorta 7h (fijas). Cortes: última salida larga < 16:00 y corta < 17:00
@@ -699,18 +710,13 @@ function calcColmena(c, pl) {
   const rows = dias.map((fecha, i) => {
     const m = mesDe(fecha);
     const pomDia = (pc.pomDia || {})[i] != null ? pc.pomDia[i] : poms[m].valor;   // POM editable por día
-    // %TM del día: MANDA NEGOCIO (reparto SM real de la query); la grid es el
-    // respaldo para días sin dato y el modo 'fijo' la impone siempre
-    let pct = (pc.pctTM || [])[m];
-    if (pc.pctTMmodo !== 'fijo' && pc.modoSM === 'query' && pc.colsSM && pc.colsSM[i] > 0 && pc.cols[i] > 0)
-      pct = Math.min(pc.colsSM[i], pc.cols[i]) / pc.cols[i];
     const out = calcDiaV2({
       pom: pomDia, callesTM: pc.callesTM[m], callesTP: pc.callesTP[m],
       largasTT: (pc.largasTT || [])[m] || 0, cortasTT: (pc.cortasTT || [])[m] || 0,
       prod: pc.prod[i], oferta: pc.cols[i],
       ofertaSM: pc.smOvr[i] != null ? pc.smOvr[i] : undefined,
-      ofertaSMQuery: (pc.modoSM === 'query' && pc.colsSM && pc.colsSM[i] > 0) ? pc.colsSM[i] : undefined,
-      prodCortas: pc.prodCortas[m], modoTP: pc.modoTP, ratioTP: pc.ratioTP, pctTM: pct,
+      ofertaSMQuery: (pc.colsSM && pc.colsSM[i] > 0) ? pc.colsSM[i] : undefined,
+      ratioTP: pc.ratioTP,
     });
     const tol = (pc.tolKO > 0 ? pc.tolKO : 2) / 100;
     const dif = out.reparto - pc.cols[i];
@@ -731,8 +737,7 @@ function resumenMes(c, pl) {
     const out = calcDiaV2({
       pom: poms[m].valor, callesTM: pc.callesTM[m], callesTP: pc.callesTP[m],
       largasTT: (pc.largasTT || [])[m] || 0, cortasTT: (pc.cortasTT || [])[m] || 0,
-      prod: prodMedia, oferta: poms[m].valor, modoTP: pc.modoTP, ratioTP: pc.ratioTP,
-      prodCortas: pc.prodCortas[m], pctTM: (pc.pctTM || [])[m],
+      prod: prodMedia, oferta: poms[m].valor, ratioTP: pc.ratioTP,
     });
     const diasOp = idx.filter(i => pc.cols[i] > 0).length;
     return { m, prodMedia, diasOp, pom: poms[m], ...out };
@@ -1449,13 +1454,13 @@ function viewParams(v) {
   const dias = diasDelAño(p.año);
   const res = resumenMes(activeCentro);
 
-  // Máximos de vehículos por turno (las "calles" de la Carpeta Verde), todo en UNA tarjeta
-  const cMax = card('Máximos de vehículos por turno', 'los topes («calles») de la Carpeta Verde · 12 meses cada uno');
+  // Máximos de vehículos por turno (H · I · J · K del Organizador), todo en UNA tarjeta
+  const cMax = card('Máximos de vehículos por turno', 'los topes del Organizador Operativo · 12 meses cada uno');
   const defs = [
     ['callesTM', 'Máximo TM (mañana)', 'vehículos máx del turno de mañana (calles físicas)'],
     ['largasTT', 'Máximo TT largas', 'rutas de 8 h (prod normal)'],
     ['cortasTT', 'Máximo TT cortas', 'rutas cortas (prod × 6,5/7,5)'],
-    ['callesTP', 'Máximo TP (puente)', 'el motor aplica mín(esto, máx TM ÷ 2)'],
+    ['callesTP', 'Máximo TP (puente)', 'vehículos máx del puente — se usa tal cual (la J del Organizador)'],
   ];
   defs.forEach(([key, titulo, sub], di) => {
     const hd = el('div'); hd.style.cssText = 'display:flex;gap:10px;align-items:baseline;margin:' + (di ? '16px' : '0') + ' 0 8px';
@@ -1464,21 +1469,14 @@ function viewParams(v) {
     cMax._b.appendChild(hd);
     cMax._b.appendChild(mgrid(pc[key].map(x => ({ valor: x })), { onchange: (m, n) => { pc[key][m] = n; tocado(); } }));
   });
-  const ntMax = el('div', 'note'); ntMax.style.marginTop = '12px'; ntMax.innerHTML = 'Máximo TT = <b>largas + cortas</b> (la L de la Carpeta Verde). bcn1: 70 largas + 24 cortas.';
+  const ntMax = el('div', 'note'); ntMax.style.marginTop = '12px'; ntMax.innerHTML = 'Máximo TT = <b>largas + cortas</b> (la I del Organizador). bcn1: 70 largas + 24 cortas.';
   cMax._b.appendChild(ntMax);
   v.appendChild(cMax);
-
-  // %Oferta TM (columna O de la Carpeta Verde)
-  const cO = card('%Oferta TM', 'parte del POM que dimensiona el parque de la mañana', 'Carpeta Verde', 'green');
-  const selO = el('select'); for (const [val, t] of [['negocio', 'Manda negocio — el % real de cada día según la query (la grid es respaldo)'], ['fijo', 'Fijo por mes — siempre la grid (como el Excel: 0,5 · 0,7 PAN · 0,52 mad3 sep-dic)']]) { const o = el('option', null, t); o.value = val; selO.appendChild(o); } selO.value = pc.pctTMmodo || 'negocio'; selO.style.cssText = 'width:100%;margin-bottom:12px'; selO.addEventListener('change', () => { pc.pctTMmodo = selO.value; tocado(); });
-  cO._b.appendChild(selO);
-  cO._b.appendChild(mgrid((pc.pctTM || pctTMDef(activeCentro)).map(x => ({ valor: x })), { onchange: (m, n) => { if (n > 0 && n <= 1) pc.pctTM[m] = n; else toast('⚠ %TM debe ser 0–1 (p. ej. 0,5)'); tocado(); } }));
-  cO._b.appendChild(el('div', 'note', 'Con «manda negocio», el parque de mañana/tarde se reparte cada día como pide la query (Of.SM ÷ oferta) y desaparecen los déficits artificiales de parque; la grid solo se usa en días sin dato de mañana.'));
 
   // Productividad
   const cP = card('Productividad por mes (rutas 8 h)', 'media de los días · editar fija el mes', 'columnas/ruta', 'green');
   cP._b.appendChild(mgrid(res.map(r => ({ valor: Math.round(r.prodMedia * 100) / 100 })), { onchange: (m, n) => { dias.forEach((d, i) => { if (mesDe(d) === m) pc.prod[i] = n; }); tocado(); } }));
-  cP._b.appendChild(el('div', 'note', 'Media de TODOS los tipos de ruta de 8 h (mañana, puente y tarde larga). «Importar CSV» la sincroniza día a día desde PMR. Las rutas cortas rinden <b>prod × 6,5/7,5</b> (Carpeta Verde): con 15,8 → 13,69.'));
+  cP._b.appendChild(el('div', 'note', 'Media de TODOS los tipos de ruta de 8 h (mañana, puente y tarde larga). «Importar CSV» la sincroniza día a día desde PMR. Las rutas cortas rinden <b>prod × 6,5/7,5</b> (Organizador): con 15,8 → 13,69.'));
   v.appendChild(cP);
 
   // Tolerancia KO: cuánto puede desviarse lo servido del negocio antes de marcar el día
@@ -1492,24 +1490,14 @@ function viewParams(v) {
   cTol._b.appendChild(rowT);
   v.appendChild(cTol);
 
-  // TP + Oferta SM (dos columnas)
-  const g = el('div', 'grid2');
-  const cTP = card('Turno puente (TP)', 'criterio de columnas');
-  const selTP = el('select'); for (const [val, t] of [['dinamico', 'Dinámico — usar todos los vehículos'], ['fijo', 'Puente fijo — POM TP del mes']]) { const o = el('option', null, t); o.value = val; selTP.appendChild(o); } selTP.value = pc.modoTP; selTP.style.width = '100%'; selTP.addEventListener('change', () => { pc.modoTP = selTP.value; tocado(); });
-  cTP._b.appendChild(selTP);
-  const rtp = el('div', 'row'); rtp.style.marginTop = '10px'; const ftp = el('div', 'field'); ftp.style.maxWidth = '120px'; ftp.appendChild(el('label', null, '% máx TP')); const itp = el('input'); itp.type = 'number'; itp.step = '0.05'; itp.value = pc.ratioTP; itp.addEventListener('change', () => { const n = numES(itp.value); if (n > 0 && n <= 1) pc.ratioTP = n; else toast('⚠ % máx TP debe ser 0–1 (p. ej. 0,4)'); itp.value = pc.ratioTP; tocado(); }); ftp.appendChild(itp); rtp.appendChild(ftp);
-  rtp.appendChild(el('div', 'note', 'El puente del día se capa a su parque del POM y al % máx sobre la tarde (Carpeta Verde).')); cTP._b.appendChild(rtp);
-  g.appendChild(cTP);
-
-  const cSM = card('Oferta SM', 'reparto mañana/tarde');
-  const selSM = el('select'); for (const [val, t] of [['query', 'Mañana de la query (manda negocio)'], ['techo', 'Techo del plan (POM SM)']]) { const o = el('option', null, t); o.value = val; selSM.appendChild(o); } selSM.value = pc.modoSM || 'query'; selSM.style.width = '100%'; selSM.addEventListener('change', () => { pc.modoSM = selSM.value; tocado(); }); cSM._b.appendChild(selSM);
-  const conSM = (pc.colsSM || []).filter(x => x > 0).length; cSM._b.appendChild(h('<div class="note" style="margin-top:10px">Mañana de la query en ' + fmt0(conSM) + ' días. El override por día (vista Plan) manda sobre todo.</div>'));
-  g.appendChild(cSM);
-
-  // criterios que se configuran una vez → plegados
+  // criterios que se configuran una vez → plegados (el resto lo formula el Organizador)
+  const cTP = card('Turno puente (TP)', '% máximo del puente sobre la oferta de tarde (AE del Organizador)');
+  const rtp = el('div', 'row'); const ftp = el('div', 'field'); ftp.style.maxWidth = '120px'; ftp.appendChild(el('label', null, '% máx TP')); const itp = el('input'); itp.type = 'number'; itp.step = '0.05'; itp.value = pc.ratioTP > 0 ? pc.ratioTP : 0.4; itp.addEventListener('change', () => { const n = numES(itp.value); if (n > 0 && n <= 1) pc.ratioTP = n; else toast('⚠ % máx TP debe ser 0–1 (p. ej. 0,4)'); itp.value = pc.ratioTP; tocado(); }); ftp.appendChild(itp); rtp.appendChild(ftp);
+  rtp.appendChild(el('div', 'note', 'El puente del día = mín(cubrir la mañana, % máx sobre la tarde, parque TP del POM). La Oferta SM ya no se elige: siempre es mín(mañana de la query, techo X del POM), como en el Excel.'));
+  cTP._b.appendChild(rtp);
   const av = el('details', 'adv');
-  av.appendChild(el('summary', null, 'Criterios avanzados — %Oferta TM · turno puente (TP) · Oferta SM'));
-  av.append(cO, g);
+  av.appendChild(el('summary', null, 'Criterios avanzados — turno puente (TP)'));
+  av.append(cTP);
   v.appendChild(av);
 
   v.appendChild(el('div', 'note', 'La parrilla de carga y la duración por tipo de ruta se editan en Oleadas, junto al gantt.'));
@@ -1769,11 +1757,11 @@ function viewGuia(v) {
   v.appendChild(h('<div class="guide">\
 <h2>Cómo funciona</h2>\
 <p>Planifica la operativa de reparto por colmena, todo en <b>columnas</b>. El flujo: columnas de la query → POM del mes → reparto por turnos (TM mañana, TT tarde largas/cortas, TP puente) → cobertura.</p>\
-<div class="fx">CARPETA VERDE · fase 1 — parque de rutas desde el POM (todo techo/ROUNDUP):\n  Rutas TM = techo(POM × %OfertaTM ÷ prod) ≤ máx TM\n  Largas = techo del resto ≤ máx largas · Cortas = resto ÷ (prod×6,5/7,5) ≤ máx cortas\n  Rutas TP = resto ≤ mín(máx TP, máx TM÷2)\n  %OfertaTM: MANDA NEGOCIO — el % real del día (Of.SM ÷ oferta de la query);\n  la grid por mes es el respaldo (o siempre, en modo fijo)\nfase 2 — el día (oferta real), cascada capada al PARQUE:\n  TP día = mín(parque SM, %TP·tarde, parque TP) → Mañana = (Of.SM − TP/2)/prod ≤ parque TM\n  → Largas → Cortas (el resto en cascada, cada una ≤ su parque)\nServido = Σ rutas × prod (cortas × 6,5/7,5) · Oferta_OK si cubre la oferta</div>\
+<div class="fx">ORGANIZADOR OPERATIVO · entradas: máx TM · TT (largas+cortas) · TP · cortas + productividad + POM\n1) Cortes: N = mín(cap. mañana, cap. tarde) × 2 · O = cap. TM+TT · P = capacidad máx\n2) Parque desde el POM (techo/ROUNDUP):\n  TM = 50% del POM ÷ prod hasta N; entre N y O, lo que la tarde completa no cubre; después, todas las calles\n  Largas = techo del resto ≤ máx largas · Cortas = resto ÷ (prod×6,5/7,5) ≤ máx cortas · TP = resto ≤ máx TP\n  Techo SM (X) = techo₁₀(TM·prod + TP·prod/2) · Vehículos POM = máx(TM+TP, largas+cortas+TP)\n3) El día: Of.SM = mín(mañana de la query, X) → cascada TP→TM→largas→cortas capada al parque\n  TP día = mín(cubrir mañana, %TP·tarde, parque TP)\nServido = Σ rutas × prod (cortas × 6,5/7,5) · Oferta_OK si cubre la oferta</div>\
 <h2>Qué editas (Parámetros)</h2>\
 <li>Máximo de <b>vehículos</b> por turno y mes: TM, TT <b>largas</b>, TT <b>cortas</b> y TP — el total de tarde es largas + cortas.</li>\
-<li>Productividad por mes de las rutas de 8 h — o sincronízala con «Importar CSV» desde PMR. Las cortas rinden siempre <b>prod × 6,5/7,5</b> (Carpeta Verde).</li>\
-<li>POM forzable (grid «POM por mes» de Plan en vista AÑO, y por día con un mes elegido), criterio TP, criterio Oferta SM y parrilla de carga (en Oleadas) con la <b>duración por tipo de ruta</b> (larga 8 h / corta 7 h, editables; dibujan el gantt de Oleadas).</li>\
+<li>Productividad por mes de las rutas de 8 h — o sincronízala con «Importar CSV» desde PMR. Las cortas rinden siempre <b>prod × 6,5/7,5</b> (Organizador).</li>\
+<li>POM forzable (grid «POM por mes» de Plan en vista AÑO, y por día con un mes elegido), % máx del puente y parrilla de carga (en Oleadas) con la <b>duración por tipo de ruta</b> (larga 8 h / corta 7 h, editables; dibujan el gantt de Oleadas).</li>\
 <h2>Negocio vs Servido</h2>\
 <p>En <b>Plan</b>, «<b>Editar rango</b>» aplica un valor (productividad, negocio, POM u Oferta SM) a un rango de fechas de golpe — para no ir día a día. Se ven las dos cosas: <b>Negocio</b> = las columnas que pide negocio (editable), y <b>Servido</b> = lo que la flota reparte de verdad = Σ (rutas × productividad). Las columnas por turno (Col TM/TT/TP) son <b>rutas × prod</b> y suman al Servido. Casi nunca cae exacto sobre Negocio: si negocio pide 100 y la productividad es 16,9, hacen falta 6 rutas (100÷16,9=5,9→6) y 6×16,9≈101 → se reparte 101, no 100. Se envían las rutas <b>necesarias para cubrir</b> cada turno mientras haya vehículos, así que la <b>Dif</b> (servido − negocio) suele ser holgura (+); solo sale − cuando los máximos se agotan de verdad. El <b>POM y la Oferta SM son editables por día</b> (vacío = el del mes / auto). Un día en <b>rojo</b> es <b>KO</b>: lo servido se desvía de negocio más de la <b>tolerancia ±%</b> (Parámetros, 2 % por defecto), sea por defecto o por exceso. En «Limita» ves el motivo: el turno que agota su máximo («tope de vehículos» si es todo) o «exceso» si se reparte de más. El anillo y el banner resumen el periodo.</p>\
 <h2>Datos</h2>\

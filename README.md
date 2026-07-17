@@ -45,35 +45,37 @@ editable celda a celda como siempre.
 1. **Columnas por día** — de la query de negocio (`daily_business_offer`), editables
    por día.
 2. **POM del mes** = máximo de columnas diarias del mes en cada colmena (forzable).
-3. **Parque de rutas desde el POM** (fase 1 de la **Carpeta Verde**, todo en rutas
-   enteras con techo/ROUNDUP):
+3. **Cortes y parque desde el POM** (pestaña **Organizador Operativo**, todo en
+   rutas enteras con techo/ROUNDUP). Entradas por mes: máx TM (H), máx TT total
+   I = largas + cortas, máx TP (J, se usa tal cual) y máx cortas (K):
 
    ```
-   Rutas TM     = techo(POM × %OfertaTM ÷ prod)   ≤ máx TM
-   Rutas largas = techo del resto                  ≤ máximo largas
-   Rutas cortas = resto ÷ (prod × 6,5/7,5)         ≤ máximo cortas
-   Rutas TP     = resto                            ≤ mín(máx TP, máx TM ÷ 2)
+   Corte N   = mín(cap. mañana, cap. tarde) × 2      (reparto simétrico 50/50)
+   Corte O   = capacidad TM+TT      ·  P = capacidad máxima (con TP)
+   Rutas TM  = techo(50% POM ÷ prod) hasta N; entre N y O, techo de lo que la
+               tarde completa no cubre; por encima de O, todas las calles TM
+   Largas    = techo del resto ≤ máx largas
+   Cortas    = resto ÷ (prod × 6,5/7,5) ≤ máx cortas · TP = resto ≤ máx TP
+   Techo SM  = techo₁₀(TM·prod + TP·prod/2)     (X, redondeado a decenas)
+   Veh. POM  = máx(TM+TP, largas+cortas+TP)     (Z)
    ```
 
-   `%Oferta TM`: por defecto **manda negocio** — cada día usa su % real de la query
-   (mañana ÷ total); la grid por colmena y mes (0,5 general · 0,7 PAN2/PAN3 ·
-   0,52 mad3 sep–dic) es el respaldo, o la norma en modo «fijo». Las cortas rinden `prod × 6,5/7,5` (con 15,8 → 13,69).
-
-4. **Operativa del día** (fase 2, con la oferta real; POM editable por día):
-   cascada **puente → mañana → largas → cortas**, cada turno con techo y capado a
-   su parque de la fase 1:
+4. **Operativa del día** (con la oferta real; POM editable por día): cascada
+   **puente → mañana → largas → cortas**, cada turno capado a su parque:
 
    ```
-   Oferta SM = mañana de la query (editable por día)
+   Oferta SM = mín(mañana de la query, techo SM X)   (editable por día)
    TP día    = mín( techo((Of.SM − TM·prod/2)/prod), %TP·tarde, parque TP )
    Mañana    = techo((Of.SM − TP·prod/2)/prod)                 ≤ parque TM
    Largas    = techo del resto ≤ parque largas · Cortas = resto ≤ parque cortas
    Servido   = Σ rutas × prod (cortas × 6,5/7,5) · Oferta_OK si ≥ oferta
    ```
 
-El motor reproduce la pestaña **Carpeta Verde** del Excel de Productividades en sus
-3.209 filas cacheadas (las únicas discrepancias son 14 filas con overrides manuales
-del propio Excel).
+El motor reproduce la pestaña **Organizador Operativo** del Excel en sus 3.285
+filas: coincidencia exacta en las 2.644 filas sanas de todas las columnas (las
+641 restantes las gobierna una variante antigua del propio Excel con un signo
+cambiado — R > máximo y largas negativas — que aquí se implementa corregida,
+como en las filas nuevas de la hoja).
 
 ## Interfaz
 
@@ -96,7 +98,7 @@ no es una alarma).
 | Sección | Función |
 |---|---|
 | **Plan** | Dos niveles con los chips de mes como zoom. Con **AÑO**: el nivel mensual — KPIs, **POM por mes** editable (máx. del mes, con override), gráfico POM vs capacidad, **columnas sin servir por mes**, desglose del POM por turno y la tabla anual completa. Con un **mes**: la tabla del Excel por día, con gráficos. **Negocio**, productividad, **POM** y Oferta SM editables por día. Muestra **Negocio** (lo que pide negocio) y **Servido** (lo que la flota reparte de verdad = Σ rutas × productividad) por separado: casi nunca coinciden por el redondeo del nº de rutas (100 col ÷ 16,9 = 5,9 → 6 rutas → 6 × 16,9 ≈ 101 servidas), y la columna **Dif** muestra el ± (en rojo solo si sale de la tolerancia). Las columnas por turno (Col TM/TT/TP) son rutas × prod y suman al Servido. Muestra **Servido**, **Dif** y **% Cob**; TT-L / TT-C por separado; y **Limita** = el motivo del KO (*faltan largas* / *cortas* / *puente* / *vehículos tarde* / *tope de vehículos* / *exceso*). Un día es **KO** cuando lo servido se desvía del negocio más de la **tolerancia ±%** (parámetro por colmena, 2 % por defecto), por defecto o por exceso. Un anillo de cobertura y KPIs resumen el periodo filtrado. En ambos niveles, la barra **Editar rango** aplica un valor a un rango de días arrastrando, y la gráfica de **Productividad** (línea con valores) permite comparar **años** (elige planes con los chips) o ver **todas las colmenas** juntas. Comparando dos años, la propia gráfica anota en cada mes el **Δ de vehículos que exige el POM** (+N verde = el año nuevo necesita más flota · −N rojo = menos): si baja la productividad, ves al momento cuántos vehículos más te pide el POM. |
-| **Parámetros** | Una tarjeta con los **máximos de vehículos** por turno y mes (TM, **TT largas**, **TT cortas** y TP — las «calles» de la Carpeta Verde) y la **productividad por mes** de las rutas de 8 h (las cortas rinden siempre prod × 6,5/7,5). La **tolerancia KO** (± % de desviación sobre negocio que se admite antes de marcar un día en rojo, 2 % por defecto) es editable. Los criterios que se configuran una vez (%Oferta TM, turno puente y Oferta SM) van plegados en **«Criterios avanzados»**. |
+| **Parámetros** | Una tarjeta con los **máximos de vehículos** por turno y mes (TM, **TT largas**, **TT cortas** y TP — los H·I·J·K del Organizador; el TP se usa tal cual) y la **productividad por mes** de las rutas de 8 h (las cortas rinden siempre prod × 6,5/7,5). La **tolerancia KO** (± % de desviación sobre negocio que se admite antes de marcar un día en rojo, 2 % por defecto) es editable. El único criterio restante (el **% máx del turno puente**) va plegado en **«Criterios avanzados»** — el %TM y el criterio de Oferta SM ya no existen: los formula el Organizador (50/50 con cortes, y Of.SM = mín(query, techo X)). |
 | **Oleadas** | Gantt de la jornada (06:00–00:00) con las oleadas de carga por turno. La **parrilla de carga y las duraciones por tipo de ruta** se configuran aquí mismo, plegadas bajo el gantt: editas y ves el efecto encima. |
 | **Plan vs PMR** | Día a día plan vs PMR, **cada lado con sus vehículos**: el plan con los que calcula el motor, PMR con los reales del CSV (`Workers`). Carga el export de turnos con «Importar CSV → Cargar en Plan vs PMR» (se guarda con el plan, no lo modifica ni recalcula) y muestra KPIs, gráfico de diferencia conmutable (**vehículos o productividad**, PMR − plan) y tabla diaria con prod plan/PMR, vehículos por turno M·P·T de cada lado, **Δ vehículos por turno** (+ rojo = PMR usa más / − verde = usa menos) y **columnas Negocio / plan / PMR**, con filtro por mes. Las barras de todos los gráficos son clicables: llevan al día o al mes de la tabla. Los gráficos se dibujan al ancho real de la pantalla y se redimensionan solos. El botón «Vaciar» borra los datos PMR cargados (el plan no se toca). |
 
