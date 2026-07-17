@@ -198,7 +198,18 @@
   .modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:22px;width:580px;max-width:94vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
   .modal.wide{width:1100px}
   .modal h3{font-size:15px;font-weight:700;margin-bottom:14px}
-  .drop{border:2px dashed var(--border2);border-radius:12px;padding:22px;text-align:center;color:var(--faint);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+  .uploads2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
+  .up{border:1.5px dashed var(--border2);border-radius:14px;padding:16px 15px;cursor:pointer;transition:all .18s;background:var(--surface2);text-align:center}
+  .up:hover,.up.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface2));transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  .up input[type=file]{display:none}
+  .up .tit{font-weight:800;font-size:13px;letter-spacing:-.01em}
+  .up .det{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5}
+  .up .det2{font-size:11px;color:var(--faint);margin-top:10px}
+  .upacts{display:flex;gap:8px;justify-content:center;margin-top:11px;flex-wrap:wrap}
+  .fuente{display:inline-block;font-size:11px;font-weight:800;color:var(--accent);text-decoration:none;padding:4px 13px;border:1px solid var(--border2);border-radius:14px;background:var(--surface);cursor:pointer;transition:all .15s;font-family:var(--sans)}
+  .fuente:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .chkadj{display:flex;gap:6px;align-items:center;justify-content:center;font-size:11px;color:var(--dim);margin-top:10px}
+  .chkadj input{width:auto}
   .drop:hover,.drop.over{border-color:var(--accent);color:var(--text)}
   textarea{width:100%;min-height:90px;background:var(--bg);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--mono);font-size:10.5px;padding:10px;outline:none;resize:vertical;margin-top:10px}
   .frow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:11px 0;font-size:12.5px}
@@ -248,13 +259,27 @@
   </div>
 </div>
 <div id="toast"></div>
-<div class="mbg" id="mCsv"><div class="modal">
-  <h3>Importar CSV — columnas o productividades</h3>
-  <div class="drop" id="drop">Arrastra el CSV de <b>daily_business_offer</b> (columnas) o el export de <b>turnos de PMR</b> (productividades) — se detecta solo</div>
-  <input type="file" id="fCsv" accept=".csv,.txt" style="display:none">
-  <textarea id="csvPaste" placeholder="center,service_date,total_columns,...  ·o·  Origin,Shift,Shift Type,Service Date,..."></textarea>
-  <div class="frow"><label style="display:flex;gap:7px;align-items:center;font-size:12px"><input type="checkbox" id="chkAdj" style="width:auto"> usar columnas <code>adjusted_*</code></label>
-    <button class="btn pri sm" id="bParse">Analizar</button></div>
+<div class="mbg" id="mCsv"><div class="modal" style="width:680px">
+  <h3>Subir datos</h3>
+  <div class="uploads2">
+    <div class="up" id="upNeg">
+      <input type="file" id="fNeg" accept=".csv,.txt">
+      <div class="tit">📊 Columnas de negocio</div>
+      <div class="det">query <code>daily_business_offer</code><br>columnas por día y colmena</div>
+      <div class="upacts"><a class="fuente" id="lnkNeg" target="_blank" rel="noopener">Abrir en Metabase ↗</a><button class="fuente" id="bSqlNeg" type="button">Copiar SQL</button></div>
+      <div class="det2">arrastra aquí el CSV o haz clic</div>
+      <label class="chkadj"><input type="checkbox" id="chkAdj"> usar columnas <code>adjusted_*</code></label>
+    </div>
+    <div class="up" id="upPmr">
+      <input type="file" id="fPmr" accept=".csv,.txt">
+      <div class="tit">🚚 Turnos de PMR</div>
+      <div class="det">export con <code>Origin, Shift, Shift Type…</code><br>productividades y vehículos reales</div>
+      <div class="upacts"><a class="fuente" id="lnkPmr" target="_blank" rel="noopener">Abrir en Metabase ↗</a></div>
+      <div class="det2">arrastra aquí el CSV o haz clic</div>
+    </div>
+  </div>
+  <textarea id="csvPaste" placeholder="…o pega aquí cualquiera de los dos CSV — se detecta solo"></textarea>
+  <div class="frow"><button class="btn pri sm" id="bParse">Analizar</button></div>
   <div id="csvRes"></div>
   <div class="macts"><button class="btn sm" id="csvClose">Cerrar</button></div>
 </div></div>
@@ -617,6 +642,12 @@ const NUBE_CONFIG = {
   clave: 'reparto',   //   nombre del documento (una fila por documento)
   auto: true,         //   guardar en la nube automáticamente al editar
 };
+// enlaces del recuadro «Subir datos» (cabecera → Importar CSV)
+const METABASE = {
+  negocio: '',   // ← pega aquí el enlace de Metabase de la query daily_business_offer
+  pmr: 'https://metabase.prod.monline/question#eyJkYXRhc2V0X3F1ZXJ5Ijp7ImRhdGFiYXNlIjo3OCwidHlwZSI6InF1ZXJ5IiwicXVlcnkiOnsic291cmNlLXRhYmxlIjo2MzQyNn19LCJkaXNwbGF5IjoidGFibGUiLCJ2aXN1YWxpemF0aW9uX3NldHRpbmdzIjp7fX0=',
+};
+const SQL_NEGOCIO = "SELECT * FROM `prod-mercadona.venta_mart.daily_business_offer`\nWHERE center IN ('vlc1','bcn1','mad1','alc1','svq1','mad2','pan2','pan3','mad3')\n  AND service_date >= '2026-01-01'\nORDER BY center, service_date";
 const NUBE_KEY = 'planificadorNube.v1';   // solo guarda lastTs y el flag de pendiente en local
 function nubeCfg() { let extra = {}; try { extra = JSON.parse(localStorage.getItem(NUBE_KEY)) || {}; } catch (e) {} return { ...NUBE_CONFIG, lastTs: extra.lastTs, dirty: !!extra.dirty }; }
 function nubeCfgSave(c) { localStorage.setItem(NUBE_KEY, JSON.stringify({ lastTs: c.lastTs, dirty: !!c.dirty })); }
@@ -1934,12 +1965,15 @@ function aplicarCsv() {
   for (const c of _stage.centros) { const ent = Object.entries(_stage.datos[c]).filter(([f]) => idxDe[f] !== undefined); if (!ent.length) continue; if (!p.centros.includes(c)) { p.centros.push(c); p.porCentro[c] = planVacio(p.año, [c]).porCentro[c]; } const pc = p.porCentro[c]; for (const [f, [tot, man]] of ent) { const i = idxDe[f]; pc.cols[i] = tot; if (man != null) pc.colsSM[i] = man; n++; } }
   _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.remove('on'); tocado(); toast(n ? 'Columnas aplicadas: ' + fmt0(n) + ' días' : '⚠ Ningún día del CSV coincide con el plan ' + p.año + ' (¿es de otro año?)');
 }
-function procesarCsv(txt) {
+function procesarCsv(txt, esperado) {
   try {
     // auto-detección: el export de PMR lleva Origin/Shift/...;
     // la query de negocio lleva center/service_date/total_columns
     const primera = (txt.split(/\r?\n/, 1)[0] || '').toLowerCase();
-    _stage = (primera.includes('origin') && primera.includes('shift')) ? parseProdCSV(txt) : parseCSV(txt, $('#chkAdj').checked);
+    const esPmr = primera.includes('origin') && primera.includes('shift');
+    if (esperado === 'cols' && esPmr) toast('ℹ Este CSV es de PMR — lo analizo como PMR');
+    if (esperado === 'prod' && !esPmr) toast('ℹ Este CSV es de la query de negocio — lo analizo como tal');
+    _stage = esPmr ? parseProdCSV(txt) : parseCSV(txt, $('#chkAdj').checked);
     mostrarResumenCsv();
   } catch (e) { toast('⚠ ' + e.message); $('#csvRes').textContent = ''; }
 }
@@ -2013,10 +2047,18 @@ function initEventos() {
   const cerrarCsv = () => { $('#mCsv').classList.remove('on'); const m = $('#mCsv').querySelector('.modal'); if (m) m.classList.remove('wide'); };
   $('#csvClose').addEventListener('click', cerrarCsv);
   $('#mCsv').addEventListener('pointerdown', e => { if (e.target === $('#mCsv')) cerrarCsv(); });
-  const dz = $('#drop'); dz.addEventListener('click', () => $('#fCsv').click());
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); }); dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-  dz.addEventListener('drop', async e => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) procesarCsv(await f.text()); });
-  $('#fCsv').addEventListener('change', async e => { const f = e.target.files[0]; if (f) procesarCsv(await f.text()); e.target.value = ''; });
+  const wireUp = (boxId, fileId, esperado) => {
+    const box = $('#' + boxId), fi = $('#' + fileId);
+    box.addEventListener('click', e => { if (e.target.closest('a,button,label,input')) return; fi.click(); });
+    fi.addEventListener('change', async e => { const f = e.target.files[0]; if (f) procesarCsv(await f.text(), esperado); e.target.value = ''; });
+    box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('over'); });
+    box.addEventListener('dragleave', () => box.classList.remove('over'));
+    box.addEventListener('drop', async e => { e.preventDefault(); box.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) procesarCsv(await f.text(), esperado); });
+  };
+  wireUp('upNeg', 'fNeg', 'cols'); wireUp('upPmr', 'fPmr', 'prod');
+  $('#bSqlNeg').addEventListener('click', () => { navigator.clipboard.writeText(SQL_NEGOCIO).then(() => toast('SQL de negocio copiada al portapapeles')).catch(() => toast('⚠ No se pudo copiar')); });
+  const setLnk = (id, url) => { const a = $('#' + id); if (url) a.href = url; else a.style.display = 'none'; };
+  setLnk('lnkNeg', METABASE.negocio); setLnk('lnkPmr', METABASE.pmr);
   $('#bParse').addEventListener('click', () => { const t = $('#csvPaste').value; if (!t.trim()) { toast('Pega el CSV'); return; } procesarCsv(t); });
   $('#bExport').addEventListener('click', () => { const a = el('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(DB, null, 1)], { type: 'application/json' })); a.download = 'planificador_productividades.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); $('#ddCopia').open = false; toast('Copia descargada'); });
   $('#bImport').addEventListener('click', () => { $('#ddCopia').open = false; $('#fJson').click(); });

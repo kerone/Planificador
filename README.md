@@ -123,7 +123,12 @@ cabecera y se abre como ventana sobre la vista actual.
 
 ## Importar CSV (auto-detecta el formato)
 
-El botón «Importar CSV» acepta dos exports y detecta solo cuál le pasas:
+El botón «Importar CSV» abre el recuadro **Subir datos** con una caja por
+fuente — **Columnas de negocio** y **Turnos de PMR** — cada una con su enlace
+«Abrir en Metabase ↗» (el de negocio aparece al rellenar `METABASE.negocio` en
+el código; la caja trae también «Copiar SQL»). Arrastra el CSV a su caja o haz
+clic para elegirlo; si sueltas uno en la caja equivocada, avisa y lo analiza
+como lo que realmente es. También puedes pegar cualquiera en el área de texto:
 
 1. **Columnas de negocio** — la query `daily_business_offer` (abajo).
 2. **Productividades por turno** — el export de PMR
