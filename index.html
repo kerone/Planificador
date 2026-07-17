@@ -1963,8 +1963,20 @@ function aplicarProdCsv() {
 }
 function aplicarCsv() {
   const p = plan(); const dias = diasDelAño(p.año); const idxDe = Object.fromEntries(dias.map((d, i) => [d, i])); let n = 0;
-  for (const c of _stage.centros) { const ent = Object.entries(_stage.datos[c]).filter(([f]) => idxDe[f] !== undefined); if (!ent.length) continue; if (!p.centros.includes(c)) { p.centros.push(c); p.porCentro[c] = planVacio(p.año, [c]).porCentro[c]; } const pc = p.porCentro[c]; for (const [f, [tot, man]] of ent) { const i = idxDe[f]; pc.cols[i] = tot; if (man != null) pc.colsSM[i] = man; n++; } }
-  _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.remove('on'); tocado(); toast(n ? 'Columnas aplicadas: ' + fmt0(n) + ' días' : '⚠ Ningún día del CSV coincide con el plan ' + p.año + ' (¿es de otro año?)');
+  // el CSV es la ÚNICA verdad de la oferta: en cada colmena que venga, se borra
+  // el año entero y se escribe solo lo del CSV (nada viejo sobrevive)
+  const conDatos = _stage.centros.filter(c => Object.keys(_stage.datos[c]).some(f => idxDe[f] !== undefined));
+  if (!conDatos.length) { toast('⚠ Ningún día del CSV coincide con el plan ' + p.año + ' (¿es de otro año?)'); return; }
+  if (!confirm('La oferta del CSV SUSTITUYE por completo la del plan ' + p.año + ' en ' + conDatos.length + ' colmena(s): ' + conDatos.join(', ') + '. Los días que no vengan en el CSV quedan a 0. ¿Continuar?')) return;
+  for (const c of conDatos) {
+    if (!p.centros.includes(c)) { p.centros.push(c); p.porCentro[c] = planVacio(p.año, [c]).porCentro[c]; }
+    const pc = p.porCentro[c];
+    pc.cols = Array(dias.length).fill(0);
+    pc.colsSM = Array(dias.length).fill(0);
+    for (const [f, [tot, man]] of Object.entries(_stage.datos[c])) { const i = idxDe[f]; if (i === undefined) continue; pc.cols[i] = tot; if (man != null) pc.colsSM[i] = man; n++; }
+  }
+  _stage = null; $('#csvRes').textContent = ''; $('#csvPaste').value = ''; $('#mCsv').classList.remove('on'); tocado();
+  toast('Oferta sustituida: ' + fmt0(n) + ' días en ' + conDatos.length + ' colmenas · lo no incluido en el CSV queda a 0');
 }
 function procesarCsv(txt, esperado) {
   try {

@@ -129,7 +129,11 @@ fuente — **Columnas de negocio** y **Turnos de PMR** — cada una con su enlac
 clic para elegirlo; si sueltas uno en la caja equivocada, avisa y lo analiza
 como lo que realmente es. También puedes pegar cualquiera en el área de texto:
 
-1. **Columnas de negocio** — la query `daily_business_offer` (abajo).
+1. **Columnas de negocio** — la query `daily_business_offer` (abajo). Su
+   «Aplicar» **sustituye por completo** la oferta de las colmenas que vengan en
+   el CSV (pide confirmación): el año entero se borra y se escribe lo del CSV —
+   los días no incluidos quedan a 0 y nada viejo sobrevive. Las colmenas que no
+   vengan en el CSV no se tocan.
 2. **Productividades por turno** — el export de PMR
    (`Origin, Shift, Shift Type, Service Date, Planned Columns, Workers, …`).
    Dos acciones: **Cargar en Plan vs PMR** guarda los datos con el plan para
