@@ -21,7 +21,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em}
+  body{background:radial-gradient(1200px 500px at 80% -10%, rgba(91,140,255,.06), transparent 60%),var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em}
   .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
   ::-webkit-scrollbar{width:9px;height:9px}
   ::-webkit-scrollbar-track{background:transparent}
@@ -29,9 +29,9 @@
   ::selection{background:rgba(91,140,255,.3)}
 
   /* HEADER */
-  header{height:54px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border)}
-  .logo{font-weight:800;font-size:15px;letter-spacing:-0.02em;display:flex;align-items:center;gap:9px}
-  .logo .dot{width:9px;height:9px;border-radius:3px;background:var(--accent)}
+  header{height:56px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 22px;background:linear-gradient(90deg,#121826,#161b26 60%,#151b2b);border-bottom:1px solid var(--border);box-shadow:0 2px 18px rgba(0,0,0,.3)}
+  .logo{font-weight:800;font-size:15.5px;letter-spacing:-0.015em;display:flex;align-items:center;gap:11px}
+  .logo .dot{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#3b6ae0);box-shadow:0 3px 10px rgba(91,140,255,.35)}
   .logo .sub{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
   .hgrow{flex:1}
   .hactions{display:flex;align-items:center;gap:8px}
@@ -41,10 +41,11 @@
   select,input[type=number],input[type=date],input[type=text]{font-family:var(--mono);font-size:12px;color:var(--text);background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;outline:none;transition:border-color .15s}
   select:focus,input:focus{border-color:var(--accent)}
   select{cursor:pointer}
-  .btn{font-family:var(--sans);font-weight:600;font-size:12px;padding:7px 13px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--dim);cursor:pointer;transition:all .15s;white-space:nowrap}
+  .btn{font-family:var(--sans);font-weight:700;font-size:12px;padding:7px 14px;border-radius:9px;border:1px solid var(--border2);background:var(--surface2);color:var(--dim);cursor:pointer;transition:all .15s;white-space:nowrap}
+  .btn:active{transform:translateY(1px)}
   .btn:hover{color:var(--text);border-color:var(--faint)}
   .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.pri:hover{background:#4a7cf0}
+  .btn.pri:hover{background:#4a7cf0;transform:translateY(-1px);box-shadow:0 4px 14px rgba(91,140,255,.3)}
   .btn.sm{padding:5px 10px;font-size:11px;border-radius:7px}
   .btn.gho{background:transparent}
 
@@ -67,7 +68,7 @@
   .navcol{font-size:18px;font-weight:800;letter-spacing:-0.02em;padding:2px 8px 14px}
   .navcol .yr{color:var(--faint);font-weight:600;font-size:13px;margin-left:7px}
   .seg{display:flex;flex-direction:column;gap:3px}
-  .seg button{font-family:var(--sans);font-weight:600;font-size:13.5px;padding:10px 13px;border-radius:9px;border:none;background:transparent;color:var(--dim);cursor:pointer;text-align:left;transition:all .12s;display:flex;align-items:center;gap:11px}
+  .seg button{font-family:var(--sans);font-weight:700;font-size:13.5px;padding:10px 13px;border-radius:10px;border:none;background:transparent;color:var(--dim);cursor:pointer;text-align:left;transition:all .12s;display:flex;align-items:center;gap:11px}
   .seg button:hover{background:var(--surface2);color:var(--text)}
   .seg button.on{background:var(--accent-dim);color:var(--accent);box-shadow:inset 2px 0 0 var(--accent)}
   .seg button svg{width:16px;height:16px;flex-shrink:0;opacity:.75}
@@ -79,18 +80,19 @@
   .view.flush{padding:0;display:flex;flex-direction:column;overflow:hidden}
 
   /* CARDS */
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;transition:border-color .15s;box-shadow:0 1px 2px rgba(0,0,0,.25),0 3px 10px rgba(0,0,0,.18)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:18px;transition:border-color .15s;box-shadow:0 2px 6px rgba(0,0,0,.22),0 12px 32px rgba(0,0,0,.22)}
   .card:hover{border-color:var(--border2)}
-  .card-h{padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
-  .card-t{font-size:12px;font-weight:700;letter-spacing:.02em;color:var(--text)}
-  .card-s{font-size:11px;color:var(--faint);font-weight:500}
+  .card-h{padding:15px 20px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--line)}
+  .card-h::before{content:'';width:4px;height:18px;border-radius:2px;background:var(--accent);flex-shrink:0}
+  .card-t{font-size:13.5px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
+  .card-s{font-size:11.5px;color:var(--faint);font-weight:600}
   .card-b{padding:16px 18px}
   .tag{margin-left:auto;font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:20px;background:var(--accent-dim);color:var(--accent);font-weight:500}
   .tag.amber{background:rgba(251,191,36,.14);color:var(--warn)}
   .tag.green{background:rgba(52,211,153,.14);color:var(--good)}
 
   /* COVERAGE BANNER */
-  .cov{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;padding:18px 22px;background:linear-gradient(120deg,var(--surface2),var(--surface));border:1px solid var(--border);border-radius:14px;margin-bottom:16px}
+  .cov{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;padding:20px 24px;background:linear-gradient(135deg,var(--surface) 55%,color-mix(in srgb,var(--accent) 9%,var(--surface)) 100%);border:1px solid var(--border);border-radius:16px;margin-bottom:18px;box-shadow:0 2px 6px rgba(0,0,0,.22),0 12px 32px rgba(0,0,0,.22)}
   .cov-ring{position:relative;width:96px;height:96px;flex-shrink:0}
   .cov-pct{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .cov-pct b{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1}
@@ -102,14 +104,14 @@
 
   /* KPI mini */
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
-  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
   .kpi .kl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
-  .kpi .kv{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1}
+  .kpi .kv{font-family:var(--mono);font-size:22px;font-weight:800;line-height:1;letter-spacing:-.02em}
   .kpi .ks{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:4px}
 
   /* CHIPS filter (meses) — más grandes; color por productividad vía --pc */
   .chips{display:flex;gap:5px;flex-wrap:wrap}
-  .chip{font-family:var(--mono);font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--dim);transition:all .12s;display:inline-flex;align-items:center;gap:7px}
+  .chip{font-family:var(--mono);font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:20px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--dim);transition:all .12s;display:inline-flex;align-items:center;gap:7px}
   .chip:hover{border-color:var(--border2);color:var(--text)}
   .chip.on{background:var(--elevated);border-color:var(--accent);color:var(--text)}
   .chip.plain{font-weight:700;letter-spacing:.04em;padding:8px 16px}
@@ -1197,9 +1199,10 @@ function vehSerie(pl, c) {
 }
 function prodCard(p) {
   const años = Object.keys(DB.planes).sort();
-  if (_prodCfg.base !== DB.activo) { _prodCfg.base = DB.activo; _prodCfg.sel = null; }   // por defecto: el año activo
+  // por defecto se comparan TODOS los años; al cambiar de plan se restaura ese defecto
+  if (_prodCfg.base !== DB.activo) { _prodCfg.base = DB.activo; _prodCfg.sel = null; }
   if (!Array.isArray(_prodCfg.sel)) _prodCfg.sel = null;
-  _prodCfg.sel = (_prodCfg.sel || [DB.activo]).filter(a => DB.planes[a]);
+  _prodCfg.sel = (_prodCfg.sel || años).filter(a => DB.planes[a]);
   if (!_prodCfg.sel.length) _prodCfg.sel = [DB.activo];
   const esRed = _prodCfg.modo === 'red';
   const periodo = _diaMes ? MESES_L[_diaMes - 1] + ' · día a día' : 'media mensual';
