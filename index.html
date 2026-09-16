@@ -1087,13 +1087,6 @@ function lineChart(series, opts) {
       });
       grupos.push(g); svg.appendChild(g);
     });
-    // marcas Δ (p. ej. vehículos POM): rótulo arriba de la columna correspondiente
-    const marcaAt = {};
-    (opts.marcas || []).forEach(m => {
-      marcaAt[m.i] = m;
-      const tt = sv('text', { x: X(m.i), y: mT + 6, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 800, 'font-family': 'var(--mono)' });
-      tt.setAttribute('fill', m.color); tt.textContent = m.txt; svg.appendChild(tt);
-    });
     // acercar el cursor a una línea la ilumina y atenúa el resto (estilo Metabase)
     const resalta = si => grupos.forEach((g, i) => {
       g.style.opacity = (si == null || i === si) ? '1' : '.22';
@@ -1104,7 +1097,7 @@ function lineChart(series, opts) {
       if (pt0 && i % xStep === 0) { const xt = sv('text', { x: X(i), y: H - 7, 'text-anchor': 'middle', fill: 'var(--dim)', 'font-size': 10, 'font-family': 'var(--mono)' }); xt.textContent = pt0.x; svg.appendChild(xt); }
       const filas = series.map(s => { const pt = s.vals[i]; return (pt && pt.v != null) ? '<span style="color:' + s.color + '">●</span> ' + s.nombre + ': <b>' + F(pt.v) + '</b>' : null; }).filter(Boolean);
       if (!filas.length) continue;
-      const tip = '<b>' + (pt0 ? pt0.x : '') + '</b><br>' + filas.join('<br>') + (marcaAt[i] ? '<br><span style="color:' + marcaAt[i].color.replace('var(--good)', '#34d399').replace('var(--bad)', '#f87171') + '">' + marcaAt[i].tip + '</span>' : '') + (opts.onClick ? '<br><span style="color:var(--faint)">clic → ver el mes</span>' : '');
+      const tip = '<b>' + (pt0 ? pt0.x : '') + '</b><br>' + filas.join('<br>') + (opts.onClick ? '<br><span style="color:var(--faint)">clic → ver el mes</span>' : '');
       const hit = sv('rect', { x: mL + pw * i / n, y: mT, width: pw / n, height: ph, fill: 'transparent' }); hit.style.cursor = opts.onClick ? 'pointer' : 'default';
       hit.addEventListener('pointermove', ev => {
         if (series.length > 1) {
@@ -1223,16 +1216,6 @@ function prodSerie(pl, c) {
   return dias.map((d, i) => ({ d, i })).filter(o => mesDe(o.d) === _diaMes - 1)
     .map(o => ({ x: o.d.slice(8, 10), v: pc.prod[o.i] > 0 ? pc.prod[o.i] : null }));
 }
-// vehículos que exige el POM: por mes (vista AÑO) o por día (vista mes)
-function vehSerie(pl, c) {
-  if (!pl || !pl.porCentro[c]) return null;
-  if (_diaMes === 0) {
-    const res = resumenMes(c, pl);
-    return MESES.map((mm, m) => ({ x: mm, v: res[m].pom.valor > 0 ? res[m].veh : null }));
-  }
-  const { rows } = calcColmena(c, pl);
-  return rows.filter(r => r.m === _diaMes - 1).map(r => ({ x: r.fecha.slice(8, 10), v: r.cols > 0 ? r.veh : null }));
-}
 function prodCard(p) {
   const años = Object.keys(DB.planes).sort();
   // por defecto se comparan TODOS los años; al cambiar de plan se restaura ese defecto
@@ -1269,26 +1252,8 @@ function prodCard(p) {
     series = _prodCfg.sel.map((a, i) => ({ nombre: a, color: YCOL[i % YCOL.length], vals: prodSerie(DB.planes[a], activeCentro) }))
       .filter(s => s.vals && s.vals.some(pt => pt.v != null));
   }
-  // comparando DOS años: en los meses/días donde cambian los vehículos del POM,
-  // la propia gráfica lo anota (+N verde = necesitas más · −N rojo = menos)
-  let marcas = null;
-  if (!esRed && series.length === 2 && _prodCfg.sel.length === 2) {
-    const v1 = vehSerie(DB.planes[_prodCfg.sel[0]], activeCentro), v2 = vehSerie(DB.planes[_prodCfg.sel[1]], activeCentro);
-    if (v1 && v2) {
-      marcas = [];
-      for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
-        const a = v1[i], b = v2[i];
-        if (a && b && a.v != null && b.v != null && b.v !== a.v) {
-          const d = b.v - a.v;
-          marcas.push({ i, txt: (d > 0 ? '+' : '') + fmt0(d), color: d > 0 ? 'var(--good)' : 'var(--bad)', tip: 'Δ vehículos POM (' + _prodCfg.sel[1] + ' − ' + _prodCfg.sel[0] + '): <b>' + (d > 0 ? '+' : '') + fmt0(d) + '</b>' });
-        }
-      }
-      if (!marcas.length) marcas = null;
-    }
-  }
   if (series.length > 1) c._b.appendChild(legend(series.map(s => ({ c: s.color, t: s.nombre }))));
-  if (marcas) c._b.appendChild(el('div', 'note', 'El número sobre el mes = Δ de vehículos que exige el POM (' + _prodCfg.sel[1] + ' − ' + _prodCfg.sel[0] + ').'));
-  if (series.length) c._b.appendChild(lineChart(series, { h: 240, marcas, onClick: _diaMes === 0 ? i => { _diaMes = i + 1; renderView(); } : null }));
+  if (series.length) c._b.appendChild(lineChart(series, { h: 240, onClick: _diaMes === 0 ? i => { _diaMes = i + 1; renderView(); } : null }));
   else c._b.appendChild(el('div', 'note', 'Sin datos en el periodo' + (esRed ? '' : ' (¿la colmena existe en esos años?)') + '.'));
   return c;
 }
